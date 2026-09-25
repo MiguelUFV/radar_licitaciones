@@ -12,6 +12,7 @@ ejecutarla dos veces el mismo día no duplica nada.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import subprocess
 import uuid
 from datetime import UTC, datetime
@@ -22,6 +23,18 @@ from radar.errores import ErrorRadar
 from radar.red import crear_cliente, descargar
 
 MANIFIESTO = "ingesta_feed"
+FALLO_INESPERADO = (
+    "La ingesta se ha interrumpido por un fallo no previsto. No se ha perdido nada: "
+    "queda anotado en la tabla ejecuciones y se reintenta en la próxima pasada."
+)
+QUEDAN_PAGINAS = (
+    "La pasada se quedó sin páginas antes de alcanzar lo ya conocido. El cursor no avanza, "
+    "así que la próxima vez se vuelve a empezar por arriba; sube el número de páginas."
+)
+PRIMERA_PASADA = (
+    "Primera pasada: queda ingerido todo lo posterior a la entrada más antigua que se ha "
+    "leído. Lo anterior a esa fecha entra con la carga histórica, no con la ingesta diaria."
+)
 
 
 def commit_actual() -> str | None:
@@ -85,6 +98,16 @@ def guardar_entrada(conexion, sha256: str, posicion: int, lic: feed.Licitacion, 
         return fila[0] if fila else None
 
 
+def guardar_baja(conexion, baja: feed.Baja, sha256: str) -> None:
+    with conexion.cursor() as cur:
+        cur.execute(
+            "INSERT INTO bajas (entry_id, cuando, motivo, raw_fichero) VALUES (%s, %s, %s, %s)"
+            " ON CONFLICT (entry_id) DO UPDATE SET cuando = EXCLUDED.cuando,"
+            " motivo = EXCLUDED.motivo, raw_fichero = EXCLUDED.raw_fichero",
+            (baja.entry_id, feed.momento(baja.cuando), baja.motivo, sha256),
+        )
+
+
 def guardar_licitacion(conexion, stg_id: int, lic: feed.Licitacion) -> int | None:
     """Inserta la licitación si esa versión no estaba. Devuelve su id, o None si ya existía."""
     with conexion.cursor() as cur:
@@ -116,6 +139,12 @@ def guardar_licitacion(conexion, stg_id: int, lic: feed.Licitacion) -> int | Non
             return None
         licitacion_id = fila[0]
 
+        for lote in lic.lotes:
+            cur.execute(
+                "INSERT INTO lotes (licitacion, numero, objeto, importe, cpv) VALUES (%s, %s, %s, %s, %s)",
+                (licitacion_id, lote.numero, lote.objeto, lote.importe, lote.cpv),
+            )
+
         for tipo, url in [("PCAP", lic.pcap), ("PPT", lic.ppt), *[("anexo", a) for a in lic.anexos]]:
             if url:
                 cur.execute(
@@ -138,14 +167,26 @@ def _bandera(valor: str | None) -> bool | None:
     return valor.strip().lower() in {"true", "1", "si", "sí"}
 
 
-def leer_cursor(conexion) -> str | None:
+def es_anterior(actualizada: str | None, cursor: datetime | None) -> bool:
+    """¿La entrada es anterior o igual al punto donde se quedó la pasada anterior?
+
+    Se comparan instantes, no textos: el día del cambio de hora conviven +02:00 y +01:00 y
+    el orden alfabético deja de coincidir con el orden real (tests/test_ingesta.py).
+    """
+    if cursor is None:
+        return False
+    instante = feed.momento(actualizada)
+    return instante is not None and instante <= cursor
+
+
+def leer_cursor(conexion) -> datetime | None:
     with conexion.cursor() as cur:
         cur.execute("SELECT ultima_fecha FROM cursor_feed WHERE fuente = 'placsp_643'")
         fila = cur.fetchone()
-        return fila[0].isoformat() if fila and fila[0] else None
+        return fila[0] if fila else None
 
 
-def escribir_cursor(conexion, ultima_fecha: str | None, ultima_entrada: str | None) -> None:
+def escribir_cursor(conexion, ultima_fecha: datetime | None, ultima_entrada: str | None) -> None:
     with conexion.cursor() as cur:
         cur.execute(
             "INSERT INTO cursor_feed (fuente, ultima_entrada, ultima_fecha, actualizado_en)"
@@ -165,13 +206,16 @@ def ingerir(paginas_max: int, tipo: str = "manual", n8n_execution_id: str | None
         "licitaciones_nuevas": 0,
         "ya_conocidas": 0,
         "documentos": 0,
+        "bajas": 0,
         "desde_disco": 0,
     }
     with conectar() as conexion:
         run_id = abrir_ejecucion(conexion, tipo, n8n_execution_id)
         cursor_anterior = leer_cursor(conexion)
-        mas_reciente = None
-        url = feed.FEED_PERFILES
+        mas_reciente: datetime | None = None
+        mas_antiguo: datetime | None = None
+        url: str | None = feed.FEED_PERFILES
+        alcanzado = False
 
         try:
             with crear_cliente() as cliente:
@@ -187,15 +231,21 @@ def ingerir(paginas_max: int, tipo: str = "manual", n8n_execution_id: str | None
                     guardar_fichero_raw(conexion, ficha, run_id)
 
                     xml = contenido.decode("utf-8", "ignore")
-                    licitaciones, url = feed.parsear_pagina(xml)
-                    bloques = xml.split("<entry>")[1:]
-                    alcanzado = False
+                    url = feed.siguiente_pagina(xml)
 
-                    for posicion, (lic, bloque) in enumerate(zip(licitaciones, bloques, strict=False)):
+                    for baja in feed.bajas(xml):
+                        guardar_baja(conexion, baja, ficha["sha256"])
+                        resumen["bajas"] += 1
+
+                    for posicion, bloque in enumerate(feed.entradas(xml)):
+                        lic = feed.parsear_entrada(bloque)
                         resumen["entradas_leidas"] += 1
-                        if mas_reciente is None or (lic.actualizada or "") > mas_reciente:
-                            mas_reciente = lic.actualizada
-                        if cursor_anterior and lic.actualizada and lic.actualizada <= cursor_anterior:
+                        instante = feed.momento(lic.actualizada)
+                        if instante and (mas_reciente is None or instante > mas_reciente):
+                            mas_reciente = instante
+                        if instante and (mas_antiguo is None or instante < mas_antiguo):
+                            mas_antiguo = instante
+                        if es_anterior(lic.actualizada, cursor_anterior):
                             alcanzado = True
                             continue
                         stg_id = guardar_entrada(conexion, ficha["sha256"], posicion, lic, bloque)
@@ -212,19 +262,40 @@ def ingerir(paginas_max: int, tipo: str = "manual", n8n_execution_id: str | None
                     conexion.commit()
                     resumen["paginas"] += 1
                     print(
-                        f"  página {resumen['paginas']}: {len(licitaciones)} entradas, "
-                        f"{resumen['licitaciones_nuevas']} nuevas acumuladas",
+                        f"  página {resumen['paginas']}: {resumen['entradas_leidas']} entradas "
+                        f"leídas, {resumen['licitaciones_nuevas']} nuevas acumuladas",
                         flush=True,
                     )
                     if alcanzado:
                         break
 
-            escribir_cursor(conexion, mas_reciente, None)
-            cerrar_ejecucion(conexion, run_id, "ok")
-        except ErrorRadar as e:
-            conexion.rollback()
-            cerrar_ejecucion(conexion, run_id, "error", str(e))
-            raise
+            # El cursor dice: "todo lo posterior a esta fecha está ingerido". Solo puede
+            # afirmar más si la pasada llegó hasta lo ya conocido o hasta el final del feed.
+            completa = alcanzado or url is None
+            resumen["completa"] = completa
+            aviso = None
+            if completa:
+                nuevo = mas_reciente
+            elif cursor_anterior is None:
+                # Primera pasada: se garantiza lo posterior a la entrada más antigua leída.
+                nuevo, aviso = mas_antiguo, PRIMERA_PASADA
+            else:
+                # Se quedó corta: entre el cursor y lo leído queda un hueco sin ingerir, así
+                # que el cursor no se mueve. Avanzarlo perdería ese hueco en silencio.
+                nuevo, aviso = cursor_anterior, QUEDAN_PAGINAS
+            if nuevo and nuevo != cursor_anterior:
+                escribir_cursor(conexion, nuevo, None)
+            cerrar_ejecucion(conexion, run_id, "ok", aviso)
+        except Exception as e:
+            legible = e.mensaje if isinstance(e, ErrorRadar) else FALLO_INESPERADO
+            # Pase lo que pase, la ejecución queda cerrada: si no, se queda "en_curso" para
+            # siempre y nadie se entera de que la ingesta se paró.
+            with contextlib.suppress(Exception):
+                conexion.rollback()
+                cerrar_ejecucion(conexion, run_id, "error", legible)
+            if isinstance(e, ErrorRadar):
+                raise
+            raise ErrorRadar(legible, detalle=repr(e)) from e
 
     resumen["run_id"] = str(run_id)
     resumen["terminada"] = datetime.now(UTC).isoformat(timespec="seconds")

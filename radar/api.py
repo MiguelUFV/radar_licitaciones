@@ -6,7 +6,7 @@ endpoint llamar (docs/DECISIONES.md D11).
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -15,6 +15,16 @@ from radar.bd import conectar
 from radar.errores import ErrorRadar
 
 app = FastAPI(title="Radar de licitaciones", version="0.1.0")
+
+
+@app.exception_handler(ErrorRadar)
+def error_legible(peticion: Request, error: ErrorRadar) -> JSONResponse:
+    """Un solo sitio donde los fallos previstos se convierten en respuesta.
+
+    El mensaje sale tal cual en el correo de aviso de n8n, así que lo lee una persona:
+    nunca una traza (CLAUDE.md, innegociable 3). El detalle técnico va al log.
+    """
+    return JSONResponse(status_code=503, content={"estado": "error", "mensaje": error.mensaje})
 
 
 class PeticionIngesta(BaseModel):
@@ -26,23 +36,16 @@ class PeticionIngesta(BaseModel):
 @app.get("/salud")
 def salud() -> dict:
     """Comprueba que la base de datos responde. n8n lo usa antes de disparar nada."""
-    try:
-        with conectar() as conexion, conexion.cursor() as cur:
-            cur.execute("SELECT count(*) FROM licitaciones")
-            licitaciones = cur.fetchone()[0]
-        return {"estado": "ok", "licitaciones": licitaciones}
-    except ErrorRadar as e:
-        return JSONResponse(status_code=503, content={"estado": "error", "mensaje": e.mensaje})
+    with conectar() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT count(*) FROM licitaciones")
+        licitaciones = cur.fetchone()[0]
+    return {"estado": "ok", "licitaciones": licitaciones}
 
 
 @app.post("/ingesta")
 def lanzar_ingesta(peticion: PeticionIngesta) -> dict:
     """Descarga el feed desde el último punto procesado y lo carga en la base de datos."""
-    try:
-        return ingesta.ingerir(peticion.paginas, peticion.tipo, peticion.n8n_execution_id)
-    except ErrorRadar as e:
-        # El mensaje sale tal cual en el correo de aviso de n8n: tiene que entenderse.
-        return JSONResponse(status_code=503, content={"estado": "error", "mensaje": e.mensaje})
+    return ingesta.ingerir(peticion.paginas, peticion.tipo, peticion.n8n_execution_id)
 
 
 @app.get("/resumen/hoy")

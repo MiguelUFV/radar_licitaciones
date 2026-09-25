@@ -15,17 +15,28 @@ RAIZ_DATOS = Path("data")
 RAW = RAIZ_DATOS / "raw"
 MANIFIESTOS = RAIZ_DATOS / "manifiestos"
 
-EXTENSIONES = {"feed": ".atom", "pliego": ".pdf", "otro": ".bin"}
+# La Plataforma sirve pliegos en PDF, comprimidos y firmados: el nombre del fichero tiene que
+# decir lo que hay dentro, no lo que se esperaba (de los 118 de la Fase 1, 3 eran zip).
+FIRMAS = ((b"%PDF", ".pdf"), (b"PK\x03\x04", ".zip"), (b"<?xml", ".xml"))
 
 
-def _ruta(tipo: str, huella: str) -> Path:
-    return RAW / tipo / huella[:2] / f"{huella}{EXTENSIONES.get(tipo, '.bin')}"
+def extension(tipo: str, contenido: bytes) -> str:
+    if tipo == "feed":
+        return ".atom"
+    for firma, sufijo in FIRMAS:
+        if contenido.startswith(firma):
+            return sufijo
+    return ".bin"
+
+
+def _ruta(tipo: str, huella: str, sufijo: str) -> Path:
+    return RAW / tipo / huella[:2] / f"{huella}{sufijo}"
 
 
 def guardar(contenido: bytes, tipo: str, url: str, manifiesto: str) -> dict:
     """Guarda el contenido y anota una línea en el manifiesto. Devuelve la ficha del fichero."""
     huella = hashlib.sha256(contenido).hexdigest()
-    destino = _ruta(tipo, huella)
+    destino = _ruta(tipo, huella, extension(tipo, contenido))
     destino.parent.mkdir(parents=True, exist_ok=True)
     if not destino.exists():
         destino.write_bytes(contenido)

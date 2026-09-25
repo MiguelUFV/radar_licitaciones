@@ -7,6 +7,7 @@ ejemplo inventado (CLAUDE.md, innegociable 2).
 from pathlib import Path
 
 import pytest
+from conftest import BAJA_REAL, entrada, pagina
 
 from radar import feed
 
@@ -67,3 +68,46 @@ def test_una_pagina_trae_licitaciones_y_enlace_a_la_siguiente():
     licitaciones, siguiente = feed.parsear_pagina(xml)
     assert len(licitaciones) == 1
     assert siguiente == "https://ejemplo.es/pagina2.atom"
+
+
+def test_las_entradas_no_arrastran_el_cierre_del_feed():
+    # Partir el XML por "<entry>" deja en el ultimo bloque todo lo que viene detras: el
+    # cierre del feed y las bajas. Ese bloque se guardaba tal cual en staging.
+    xml = pagina(
+        [entrada("uno", "2026-09-05T10:00:00.000+02:00"), entrada("dos", "2026-09-04T10:00:00.000+02:00")],
+        bajas=BAJA_REAL,
+    ).decode("utf-8")
+    bloques = feed.entradas(xml)
+    assert len(bloques) == 2
+    assert "</feed>" not in bloques[-1]
+    assert "deleted-entry" not in bloques[-1]
+
+
+def test_reconoce_las_licitaciones_anuladas():
+    xml = pagina([entrada("uno", "2026-09-05T10:00:00.000+02:00")], bajas=BAJA_REAL).decode("utf-8")
+    bajas = feed.bajas(xml)
+    assert len(bajas) == 1
+    assert bajas[0].entry_id.endswith("/20499474")
+    assert bajas[0].motivo == "ANULADA"
+    assert bajas[0].cuando.startswith("2026-09-04")
+
+
+def test_lee_los_lotes_con_su_objeto_su_importe_y_su_cpv():
+    bloque = (FIXTURE.parent / "entrada_con_lotes.xml").read_text(encoding="utf-8")
+    licitacion = feed.parsear_entrada(bloque)
+    assert len(licitacion.lotes) == 2
+    assert licitacion.lotes[0].numero == 1
+    assert licitacion.lotes[0].objeto == "Fiesta de la Vendimia"
+    assert licitacion.lotes[1].importe == 16550.0
+    assert "79952000" in licitacion.lotes[0].cpv
+
+
+def test_una_licitacion_sin_lotes_no_inventa_ninguno(licitacion):
+    assert licitacion.lotes == []
+
+
+def test_ordena_las_fechas_aunque_cambie_el_huso():
+    # El 25-10-2026 el horario pasa de +02:00 a +01:00.
+    antes = feed.momento("2026-10-25T03:00:00.000+02:00")  # 01:00 UTC
+    despues = feed.momento("2026-10-25T02:30:00.000+01:00")  # 01:30 UTC
+    assert despues > antes
