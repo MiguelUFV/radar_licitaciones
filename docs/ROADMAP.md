@@ -3,13 +3,13 @@
 Una sesión son unas 2–3 horas de trabajo con Claude Code. Total estimado: 14–18 sesiones.
 Ninguna fase empieza sin que la anterior cumpla su criterio de salida.
 
-**Fase activa: 2** (la 0 y la 1 están cerradas; informe en `docs/informes/fase1_datos.md`)
+**Fase activa: 3** (la 0, la 1 y la 2 están cerradas; informe de la 1 en `docs/informes/fase1_datos.md`)
 
 | Fase | Objetivo | Sesiones | Puerta de salida |
 |---|---|---|---|
 | 0 | Entorno, cuentas y repositorio | 1 | ✔ Cerrada el 25-09-2026: diagnóstico en verde |
 | 1 | Medir los datos reales (go / no-go) | 1–2 | ✔ Cerrada el 25-09-2026: **GO**, las tres puertas cumplidas |
-| 2 | Ingesta con trazabilidad | 2 | Ingesta diaria idempotente desde n8n |
+| 2 | Ingesta con trazabilidad | 2 | ✔ Cerrada el 25-09-2026: ingesta diaria idempotente desde n8n |
 | 3 | Verdad de referencia y baseline (el "antes") | 1–2 | M1 y M2 del filtro CPV medidos |
 | 4 | Agente LangGraph v1 | 3 | Grafo completo con desarrollo; modelo de triaje decidido |
 | 5 | Medición (el "después") | 2 | Informe M1–M8 reproducible con un comando |
@@ -67,18 +67,21 @@ solo hace falta en el resto") y se mide igualmente. Es un resultado publicable.
 
 ## Fase 2 — Ingesta con trazabilidad
 
-- [ ] Esquema Postgres por capas (`sql/migraciones/`), según `docs/DATOS.md`
-- [ ] Descarga del feed con cursor: sigue `rel="next"` hasta el último punto procesado
-- [ ] Capa raw: cada fichero con sha256; nunca se sobrescribe
-- [ ] Parser CODICE → staging → core (licitaciones, lotes, documentos, adjudicaciones)
-- [ ] Tratamiento de `deleted-entry` (anulada / cerrada / archivada)
-- [ ] Descarga de PCAP con reintentos; el documento queda ligado a su expediente y a su sha256
-- [ ] API FastAPI: `/salud`, `/ingesta`
-- [ ] Workflow n8n `diario_radar` v1: programación a las 07:00 → `/ingesta` → registro; `errores`: aviso por correo
-- [ ] Tests con entradas reales del feed guardadas como fixtures
+- [x] Esquema Postgres por capas (`sql/migraciones/`), según `docs/DATOS.md`
+- [x] Descarga del feed con cursor: sigue `rel="next"` hasta el último punto procesado (D23, D24)
+- [x] Capa raw: cada fichero con sha256; nunca se sobrescribe. La extensión sale de los bytes
+- [x] Parser CODICE → staging → core (licitaciones, lotes, documentos, adjudicaciones)
+- [x] Tratamiento de `deleted-entry` (tabla `bajas`; la vista dice si el expediente está anulado)
+- [x] Descarga de PCAP con reintentos; el documento queda ligado a su expediente y a su sha256 (D26)
+- [x] API FastAPI: `/salud`, `/ingesta`, `/pliegos`, `/resumen/hoy`
+- [x] Workflow n8n `radar_diario` v1: 07:00 → `/ingesta` → `/pliegos`; `radar_errores` registra el
+      fallo en la tabla `incidencias`. **El aviso por correo pasa a la Fase 7**: necesita la
+      credencial de Gmail (D25)
+- [x] Tests con entradas reales del feed guardadas como fixtures
 
-**Puerta:** dos ejecuciones seguidas del mismo día no crean duplicados, y cualquier fila de
-`licitaciones` se remonta a su fichero raw.
+**Puerta (cumplida el 25-09-2026):** dos pasadas seguidas no crean duplicados (test
+`test_repetir_la_pasada_completa_no_duplica_nada`, y comprobado con las 1.493 licitaciones reales), y
+cualquier fila de `licitaciones` se remonta a su fichero raw (test + consulta en el informe).
 
 ## Fase 3 — Verdad de referencia y baseline (el "antes")
 
@@ -125,6 +128,8 @@ solo hace falta en el resto") y se mide igualmente. Es un resultado publicable.
 
 ## Fase 7 — Interfaz: correo y ficha
 
+- [ ] Contraseña de aplicación de Gmail y credencial SMTP en n8n (la creas tú, ENTORNO §6)
+- [ ] Nodo de correo en `radar_errores`: el aviso de fallo sale de la tabla `incidencias` (viene de la Fase 2, decisión D25)
 - [ ] Correo diario: resumen del día (N revisadas, N en la lista, coste del día) y una línea por licitación
 - [ ] Ficha HTML por licitación: requisitos, decisión, cita con página y enlace al PDF original
 - [ ] Diseño sobrio (tipografía, jerarquía, sin adornos); revisión con el skill `frontend-design`

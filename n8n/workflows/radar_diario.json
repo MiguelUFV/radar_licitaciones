@@ -2,7 +2,8 @@
   "name": "radar_diario",
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Europe/Madrid"
+    "timezone": "Europe/Madrid",
+    "errorWorkflow": "sxeZDaAu4WlGZqoq"
   },
   "nodes": [
     {
@@ -60,6 +61,26 @@
         440,
         0
       ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://agente:8000/pliegos",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ limite: 20, tipo: 'diaria', n8n_execution_id: $execution.id }) }}",
+        "options": {
+          "timeout": 900000
+        }
+      },
+      "id": "pliegos",
+      "name": "Bajar los pliegos pendientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ]
     }
   ],
   "connections": {
@@ -79,6 +100,17 @@
         [
           {
             "node": "Ingerir el feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingerir el feed": {
+      "main": [
+        [
+          {
+            "node": "Bajar los pliegos pendientes",
             "type": "main",
             "index": 0
           }

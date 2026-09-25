@@ -171,6 +171,14 @@ flowchart TD
 - **Tiempo (M7):** un único revisor. Es una medición real, pero no generalizable.
 - **No evalúa la probabilidad de ganar** ni los criterios de adjudicación.
 - **Ejecución local:** si el PC está apagado, no hay correo ese día (se recupera al siguiente).
+- **Alcance de la ingesta diaria:** el radar garantiza lo publicado desde su primera pasada. Lo
+  anterior depende de la carga histórica (Fase 3), que es un proceso aparte. Si una pasada se queda
+  sin páginas antes de alcanzar lo ya conocido, no avanza el cursor y lo dice en la ejecución
+  (decisión D23); si eso se repite, el número de páginas por pasada se queda corto.
+- **Pliegos que no se pueden leer:** los que vienen comprimidos, firmados (xsig) o dañados quedan
+  marcados como ilegibles con su motivo, y no se reintentan. En la Fase 1 fueron 3 de 118.
+- **Aviso de fallo sin correo hasta la Fase 7:** las incidencias quedan en la tabla `incidencias`
+  (las escribe n8n directamente, decisión D25). El correo necesita la credencial de Gmail.
 
 ## 10. Fuera de alcance
 

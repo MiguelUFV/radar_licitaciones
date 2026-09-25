@@ -1,0 +1,56 @@
+{
+  "name": "radar_errores",
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Madrid"
+  },
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "fallo",
+      "name": "Cuando falla un workflow del radar",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO incidencias (workflow, n8n_execution_id, nodo, mensaje) VALUES ($1, $2, $3, 'El radar no ha podido terminar su tarea automática: se paró en el paso «' || coalesce($3, 'desconocido') || '». Lo ya guardado no se pierde y se reintenta en la próxima ejecución. Detalle técnico: ' || coalesce($4, '(sin detalle)'))",
+        "options": {
+          "queryReplacement": "={{ $json.workflow?.name }},{{ $json.execution?.id }},{{ $json.execution?.lastNodeExecuted }},{{ $json.execution?.error?.message }}"
+        }
+      },
+      "id": "anotar",
+      "name": "Anotar la incidencia",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "TB1j0B1xkZ3BYYvF",
+          "name": "radar_postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cuando falla un workflow del radar": {
+      "main": [
+        [
+          {
+            "node": "Anotar la incidencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

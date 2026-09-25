@@ -129,3 +129,54 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
 
 ## D20 · Repositorio privado hasta la Fase 8, correo `noreply`, licencia MIT
 - **Motivo:** se publica cuando haya cifras medidas y se haya revisado el historial en busca de secretos. MIT es compatible con todas las dependencias elegidas (por eso se descartó PyMuPDF).
+
+## D23 · El cursor de la ingesta solo avanza si la pasada llegó hasta lo ya conocido
+- **Hallazgo del 25-09-2026**, auditando la ingesta antes de seguir: el cursor se movía a la entrada
+  más reciente al terminar, aunque la pasada se hubiera quedado sin páginas. Todo lo que quedaba por
+  debajo (y era posterior al cursor anterior) no se volvía a leer nunca. Demostrado con un test: 1
+  licitación ingerida de 3.
+- **Decisión:** el cursor significa "todo lo posterior a esta fecha está ingerido", y solo puede
+  afirmar más si la pasada alcanzó lo ya conocido o el final del feed. Si se queda corta, no se mueve
+  y la ejecución queda con un aviso; la siguiente vuelve a empezar por arriba.
+- **Caso de la primera pasada:** sin cursor previo no hay nada que alcanzar, así que nunca se
+  completaría. La primera deja el punto en la entrada **más antigua** leída, que es lo único que se
+  puede garantizar. Lo anterior a esa fecha entra con la carga histórica (Fase 3), no con la diaria.
+- **Descartado:** dejar el cursor en lo más antiguo siempre (perdería el hueco entre pasadas cortas
+  sin avisar, que es el fallo original con otro disfraz).
+- **Revisar si:** la carga histórica cambia la forma de recorrer el feed.
+
+## D24 · Las fechas del feed se comparan como instantes, nunca como texto
+- **Motivo:** el feed trae `2026-09-23T21:10:08.435+02:00`. Dos veces al año conviven +02:00 y
+  +01:00 y el orden alfabético deja de ser el orden real: el 25-10-2026, una entrada de las 02:30
+  (+01:00) es media hora **posterior** a otra de las 03:00 (+02:00), pero como texto parece anterior.
+  Con la comparación de texto, esa entrada se descartaba por "ya conocida" y se perdía.
+- **Decisión:** `feed.momento()` convierte a `datetime` y todas las comparaciones del cursor usan
+  instantes. La columna de la base ya era `TIMESTAMPTZ`.
+
+## D25 · El aviso de fallo lo escribe n8n directamente en Postgres, no a través del agente
+- **Motivo:** el fallo más probable es que el agente no responda (contenedor parado, PC ocupado). Un
+  aviso que pasara por el agente no llegaría justo cuando hace falta.
+- **Decisión:** el workflow `radar_errores` (disparador de error) escribe en la tabla `incidencias`
+  con una credencial de Postgres propia de n8n. El mensaje se guarda enmarcado en español, con el
+  texto original de n8n como detalle técnico.
+- **Verificado el 25-09-2026:** con el contenedor del agente parado, el fallo quedó registrado —
+  workflow, ejecución, paso y mensaje— sin intervención.
+- **Pendiente:** el aviso por correo necesita la contraseña de aplicación de Gmail, que se crea en la
+  Fase 7 junto con el correo diario. Hasta entonces, las incidencias se consultan en la tabla.
+
+## D26 · Los pliegos se bajan solo para las candidatas, con tope por pasada
+- **Motivo:** el feed referencia 5.438 documentos para 1.493 licitaciones. Bajarlos todos serían
+  varios gigas de PDF para leer cuatro páginas de unos pocos.
+- **Decisión:** se baja el PCAP de las licitaciones vigentes, no anuladas y con CPV de informática
+  (72 o 48), con un tope por ejecución (20 al día). Un documento que falla vuelve a la cola hasta 3
+  intentos; uno ilegible (zip, firmado, dañado) no se reintenta, porque no va a cambiar.
+- **Provisional:** el filtro por CPV está aquí para acotar el gasto, no es la regla de selección. La
+  regla de verdad se escribe y se congela en la Fase 3.
+
+## D27 · Los tests que tocan la base de datos usan una base aparte (`radar_test`)
+- **Motivo:** los tests necesitan insertar filas para provocar situaciones (un hueco en el cursor,
+  una baja, un pliego ilegible). Hacerlo en la base de trabajo metería datos de prueba entre los
+  reales, que es justo lo que prohíbe el innegociable 2.
+- **Decisión:** la fixture `bd` crea `radar_test` si no existe, aplica las migraciones y vacía las
+  tablas antes de cada test. Si no hay PostgreSQL levantado, esos tests se saltan solos y la
+  integración continua sigue funcionando.

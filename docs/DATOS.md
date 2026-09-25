@@ -85,17 +85,21 @@ el mismo fichero descargado dos veces ocupa un solo sitio.
 |---|---|---|
 | `licitaciones` | `entry_id` + `entry_updated` (clave única: da la idempotencia), `expediente`, órgano (NIF, nombre), `objeto`, `tipo_contrato`, `cpv[]`, importes, `plazo_presentacion`, `estado` (PUB · EV · ADJ · RES · anulada), `solvencia_feed_texto` | `stg_entrada_id` |
 | `lotes` | `numero`, `objeto`, `importe`, `cpv[]` | `licitacion_id` |
-| `documentos` | `tipo` (PCAP · PPT · anexo), `url`, `estado_descarga`, `formato`, `paginas`, `con_capa_texto` | `licitacion_id`, `raw_fichero_id` |
+| `documentos` | `tipo` (PCAP · PPT · anexo), `url`, `estado_descarga` (pendiente · descargado · ilegible · error), `paginas`, `con_capa_texto`, `intentos`, `ultimo_intento`, `motivo_error` | `licitacion_id`, `raw_fichero` (sha256) |
 | `paginas` | `numero`, `texto`, `metodo` (texto · ocr_modelo) | `documento_id`, `llm_llamada_id` si hubo OCR |
 | `adjudicaciones` | `lote`, `adjudicatario_id` (NIF si es empresa; hash si es persona física), `nombre`, `es_pyme`, `es_ute`, `importe`, `fecha` | `licitacion_id`, `stg_entrada_id` |
+| `bajas` | `entry_id`, `cuando`, `motivo` (ANULADA…) | `raw_fichero` (la página del feed que la trajo) |
 
 Cada actualización de una entrada crea una versión nueva. La vista `v_licitaciones_vigentes` muestra
-la última.
+la última y dice si el expediente está anulado (columna `anulada`, que sale de `bajas`). Una baja
+puede llegar sin que el expediente esté ingerido, así que se guarda por su `entry_id`, exista o no la
+fila en `licitaciones`.
 
 ### L3 · Análisis
 | Tabla | Campos clave | Apunta a |
 |---|---|---|
 | `ejecuciones` | `run_id`, `tipo` (diaria · histórica · evaluación), `n8n_execution_id`, `git_commit`, `config_sha256`, modelos, `presupuesto_eur`, inicio, fin, `estado`, `mensaje` | `perfil_id` |
+| `incidencias` | `ocurrida_en`, `workflow`, `n8n_execution_id`, `nodo`, `mensaje` (en español, con el detalle técnico al final) | — (las escribe n8n directamente en Postgres: si el agente está caído, el aviso tiene que quedar igual) |
 | `perfiles` | `alias` (Empresa A…), `texto`, `sha256`, `fuentes` (URL + fecha), `cifra_negocio` + fuente, `rol` (desarrollo · test), `congelado_en` | — |
 | `llm_llamadas` | `nodo`, `modelo`, `prompt_version`, `prompt_sha256`, `request_id` de Anthropic, tokens (entrada, salida, lectura de caché, escritura de caché), `batch`, `coste_usd`, `coste_eur`, `latencia_ms`, `stop_reason`, `respuesta` (íntegra) | `run_id`, `licitacion_id`, `tipo_cambio_fecha` |
 | `extracciones` | `campo`, `valor`, `unidad`, `cita_literal`, `pagina`, `cita_verificada` | `documento_id`, `llm_llamada_id`, `run_id` |

@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from radar import ingesta
+from radar import ingesta, pliegos
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 
@@ -46,6 +46,24 @@ def salud() -> dict:
 def lanzar_ingesta(peticion: PeticionIngesta) -> dict:
     """Descarga el feed desde el último punto procesado y lo carga en la base de datos."""
     return ingesta.ingerir(peticion.paginas, peticion.tipo, peticion.n8n_execution_id)
+
+
+class PeticionPliegos(BaseModel):
+    limite: int = Field(default=20, ge=1, le=200, description="pliegos como máximo en esta pasada")
+    documento: str = Field(default="PCAP", pattern="^(PCAP|PPT|anexo)$")
+    tipo: str = Field(default="diaria", pattern="^(diaria|manual|historica)$")
+    n8n_execution_id: str | None = None
+
+
+@app.post("/pliegos")
+def bajar_pliegos(peticion: PeticionPliegos) -> dict:
+    """Baja los pliegos pendientes de las licitaciones candidatas."""
+    return pliegos.descargar_pendientes(
+        limite=peticion.limite,
+        tipo=peticion.documento,
+        tipo_ejecucion=peticion.tipo,
+        n8n_execution_id=peticion.n8n_execution_id,
+    )
 
 
 @app.get("/resumen/hoy")
