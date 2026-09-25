@@ -21,7 +21,9 @@ REQUISITOS = {
     "habilitacion": r"habilitaci[oó]n empresarial|habilitaci[oó]n profesional",
     "adscripcion": r"adscribir a la ejecuci[oó]n|adscripci[oó]n de medios",
 }
-SECCION_SOLVENCIA = re.compile(r"solvencia econ[oó]mica|capacidad y solvencia|volumen anual de negocios", re.I)
+SECCION_SOLVENCIA = re.compile(
+    r"solvencia econ[oó]mica|capacidad y solvencia|volumen anual de negocios", re.I
+)
 CIFRA = re.compile(r"\d[\d.\s]{2,}(?:,\d+)?\s*(?:€|euros)", re.I)
 REMITE = re.compile(r"anexo\s+[IVX0-9]|anuncio de licitaci[oó]n|cuadro (?:de caracter|resumen)", re.I)
 CASILLAS = re.compile(r"[☐☑☒█]")  # ☐ ☑ ☒

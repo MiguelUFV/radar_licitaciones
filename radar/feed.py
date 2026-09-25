@@ -20,7 +20,8 @@ _SIGUIENTE = re.compile(r'<link href="([^"]+)" rel="next"')
 
 
 def _uno(bloque: str, etiqueta: str) -> str | None:
-    m = re.search(rf"<(?:\w+:)?{etiqueta}[^>]*>\s*([^<]+?)\s*<", bloque)
+    # El prefijo puede llevar guion (cbc-place-ext:ContractFolderStatusCode), así que \w no basta.
+    m = re.search(rf"<(?:[\w-]+:)?{etiqueta}[^>]*>\s*([^<]+?)\s*<", bloque)
     return m.group(1) if m else None
 
 
@@ -55,7 +56,9 @@ class Licitacion:
     def solvencia_con_cifras(self) -> bool:
         if not self.solvencia_feed:
             return False
-        return bool(re.search(r"\d[\d.,]*\s*(€|euros|EUR)|\d+(,\d+)?\s*(veces|x)\b", self.solvencia_feed, re.I))
+        return bool(
+            re.search(r"\d[\d.,]*\s*(€|euros|EUR)|\d+(,\d+)?\s*(veces|x)\b", self.solvencia_feed, re.I)
+        )
 
     @property
     def solvencia_remite_al_pliego(self) -> bool:
@@ -73,9 +76,7 @@ def _numero(texto: str | None) -> float | None:
 
 def parsear_entrada(bloque: str) -> Licitacion:
     proyecto = _dentro(bloque, "ProcurementProject") or bloque
-    plazo = re.search(
-        r"<cac:TenderSubmissionDeadlinePeriod>\s*<cbc:EndDate>\s*([\d-]+)", bloque
-    )
+    plazo = re.search(r"<cac:TenderSubmissionDeadlinePeriod>\s*<cbc:EndDate>\s*([\d-]+)", bloque)
     cualificacion = _dentro(bloque, "TendererQualificationRequest")
     solvencia = None
     if cualificacion:

@@ -42,6 +42,31 @@ def guardar(contenido: bytes, tipo: str, url: str, manifiesto: str) -> dict:
     return ficha
 
 
+_INDICES: dict[str, dict[str, str]] = {}
+
+
+def _indice(manifiesto: str) -> dict[str, str]:
+    """URL -> ruta local, leyendo el manifiesto una sola vez por ejecución."""
+    if manifiesto not in _INDICES:
+        indice: dict[str, str] = {}
+        fichero = MANIFIESTOS / f"{manifiesto}.csv"
+        if fichero.exists():
+            with fichero.open(encoding="utf-8", newline="") as f:
+                for fila in csv.DictReader(f):
+                    indice[fila["url"]] = fila["ruta"]
+        _INDICES[manifiesto] = indice
+    return _INDICES[manifiesto]
+
+
+def buscar_por_url(url: str, manifiesto: str) -> bytes | None:
+    """Devuelve el contenido ya descargado en una ejecución anterior, si sigue en disco."""
+    ruta = _indice(manifiesto).get(url.strip())
+    if not ruta:
+        return None
+    fichero = Path(ruta)
+    return fichero.read_bytes() if fichero.exists() else None
+
+
 def anotar(ficha: dict, manifiesto: str) -> None:
     MANIFIESTOS.mkdir(parents=True, exist_ok=True)
     fichero = MANIFIESTOS / f"{manifiesto}.csv"
@@ -51,3 +76,5 @@ def anotar(ficha: dict, manifiesto: str) -> None:
         if nuevo:
             escritor.writeheader()
         escritor.writerow(ficha)
+    if "url" in ficha and "ruta" in ficha:
+        _indice(manifiesto)[ficha["url"]] = ficha["ruta"]

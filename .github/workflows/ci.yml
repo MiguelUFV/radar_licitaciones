@@ -1,0 +1,29 @@
+name: Comprobaciones
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  calidad:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Preparar el entorno
+        run: uv sync --frozen
+
+      - name: Formato y análisis estático
+        run: |
+          uv run ruff format --check .
+          uv run ruff check .
+
+      - name: Tests
+        # Los tests no tocan la red ni la API: usan entradas reales ya descargadas.
+        run: uv run pytest

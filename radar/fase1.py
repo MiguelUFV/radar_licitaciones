@@ -26,25 +26,40 @@ INFORME_JSON = Path("data/informes/fase1_datos.json")
 INFORME_MD = Path("docs/informes/fase1_datos.md")
 
 
+def obtener(url: str, tipo: str, manifiesto: str, cliente, intentos: int = 3) -> tuple[bytes, bool]:
+    """Devuelve el contenido y si venía de una descarga anterior. Repetir la medición no gasta red."""
+    guardado = almacen.buscar_por_url(url, manifiesto)
+    if guardado is not None:
+        return guardado, True
+    datos = descargar(url, cliente, intentos=intentos)
+    almacen.guardar(datos, tipo, url, manifiesto)
+    return datos, False
+
+
 def recoger_feed(paginas: int, cliente) -> tuple[list[feed.Licitacion], dict]:
     url = feed.FEED_PERFILES
     licitaciones: list[feed.Licitacion] = []
     descargadas = 0
     bytes_totales = 0
 
+    reutilizadas = 0
     while url and descargadas < paginas:
-        contenido = descargar(url, cliente)
-        ficha = almacen.guardar(contenido, "feed", url, manifiesto="fase1_feed")
-        bytes_totales += ficha["bytes"]
+        contenido, del_disco = obtener(url, "feed", "fase1_feed", cliente)
+        bytes_totales += len(contenido)
+        reutilizadas += del_disco
         lote, url = feed.parsear_pagina(contenido.decode("utf-8", "ignore"))
         licitaciones.extend(lote)
         descargadas += 1
-        print(f"  página {descargadas}/{paginas}: {len(lote)} licitaciones", flush=True)
+        print(
+            f"  página {descargadas}/{paginas}: {len(lote)} licitaciones{' (de disco)' if del_disco else ''}",
+            flush=True,
+        )
 
     fechas = [feed.fecha(lic.actualizada) for lic in licitaciones]
     fechas = sorted(f for f in fechas if f)
     resumen = {
         "paginas_descargadas": descargadas,
+        "paginas_reutilizadas_de_disco": reutilizadas,
         "megabytes": round(bytes_totales / 1024 / 1024, 1),
         "entradas": len(licitaciones),
         "desde": fechas[0].isoformat() if fechas else None,
@@ -100,8 +115,7 @@ def medir_pliegos(licitaciones: list[feed.Licitacion], cuantos: int, semilla: in
     analisis, fallos = [], []
     for i, lic in enumerate(muestra, start=1):
         try:
-            datos = descargar(lic.pcap, cliente, intentos=2)
-            almacen.guardar(datos, "pliego", lic.pcap, manifiesto="fase1_pliegos")
+            datos, _ = obtener(lic.pcap, "pliego", "fase1_pliegos", cliente, intentos=2)
             medida = documentos.analizar(datos)
             medida["expediente"] = lic.expediente
             analisis.append(medida)
@@ -175,7 +189,8 @@ def veredicto(feed_medido: dict, pliegos: dict) -> dict:
     puertas = {
         "1. Adjudicadas con NIF del ganador ≥ 80 %": (feed_medido.get("adjudicadas_con_nif_pct") or 0) >= 80,
         "2. Pliegos descargables y legibles ≥ 70 %": (pliegos.get("descargados_pct") or 0) >= 70,
-        "3. Solvencia con cifras ausente del feed ≥ 50 %": (feed_medido.get("sin_cifra_en_el_feed_pct") or 0) >= 50,
+        "3. Solvencia con cifras ausente del feed ≥ 50 %": (feed_medido.get("sin_cifra_en_el_feed_pct") or 0)
+        >= 50,
     }
     return {"puertas": puertas, "decision": "GO" if all(puertas.values()) else "REVISAR"}
 

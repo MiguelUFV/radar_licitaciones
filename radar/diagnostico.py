@@ -1,6 +1,6 @@
 """Comprobación del entorno. Cada fallo se explica en castellano, sin trazas.
 
-    uv run python -m radar.diagnostico
+uv run python -m radar.diagnostico
 """
 
 from __future__ import annotations
