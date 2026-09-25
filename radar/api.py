@@ -1,0 +1,70 @@
+"""Servicio HTTP del radar. Es la frontera con n8n: n8n no sabe cómo se decide, solo a qué
+endpoint llamar (docs/DECISIONES.md D11).
+
+    uv run uvicorn radar.api:app --host 127.0.0.1 --port 8000
+"""
+
+from __future__ import annotations
+
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+
+from radar import ingesta
+from radar.bd import conectar
+from radar.errores import ErrorRadar
+
+app = FastAPI(title="Radar de licitaciones", version="0.1.0")
+
+
+class PeticionIngesta(BaseModel):
+    paginas: int = Field(default=5, ge=1, le=60, description="páginas del feed como máximo")
+    tipo: str = Field(default="diaria", pattern="^(diaria|manual|historica)$")
+    n8n_execution_id: str | None = Field(default=None, description="ejecución de n8n que lo dispara")
+
+
+@app.get("/salud")
+def salud() -> dict:
+    """Comprueba que la base de datos responde. n8n lo usa antes de disparar nada."""
+    try:
+        with conectar() as conexion, conexion.cursor() as cur:
+            cur.execute("SELECT count(*) FROM licitaciones")
+            licitaciones = cur.fetchone()[0]
+        return {"estado": "ok", "licitaciones": licitaciones}
+    except ErrorRadar as e:
+        return JSONResponse(status_code=503, content={"estado": "error", "mensaje": e.mensaje})
+
+
+@app.post("/ingesta")
+def lanzar_ingesta(peticion: PeticionIngesta) -> dict:
+    """Descarga el feed desde el último punto procesado y lo carga en la base de datos."""
+    try:
+        return ingesta.ingerir(peticion.paginas, peticion.tipo, peticion.n8n_execution_id)
+    except ErrorRadar as e:
+        # El mensaje sale tal cual en el correo de aviso de n8n: tiene que entenderse.
+        return JSONResponse(status_code=503, content={"estado": "error", "mensaje": e.mensaje})
+
+
+@app.get("/resumen/hoy")
+def resumen_hoy() -> dict:
+    """Lo ingerido en la última ejecución correcta, para el informe diario."""
+    with conectar() as conexion, conexion.cursor() as cur:
+        cur.execute(
+            "SELECT run_id, inicio, fin, estado FROM ejecuciones"
+            " WHERE estado = 'ok' ORDER BY inicio DESC LIMIT 1"
+        )
+        fila = cur.fetchone()
+        if not fila:
+            return {"estado": "sin_ejecuciones"}
+        cur.execute(
+            "SELECT count(*) FROM licitaciones l JOIN stg_entradas s ON s.id = l.stg_entrada"
+            " JOIN raw_ficheros r ON r.sha256 = s.raw_fichero WHERE r.ejecucion_id = %s",
+            (fila[0],),
+        )
+        nuevas = cur.fetchone()[0]
+    return {
+        "run_id": str(fila[0]),
+        "inicio": fila[1].isoformat(),
+        "fin": fila[2].isoformat() if fila[2] else None,
+        "licitaciones_ingeridas": nuevas,
+    }

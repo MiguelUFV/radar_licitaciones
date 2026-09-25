@@ -1,0 +1,89 @@
+{
+  "name": "radar_diario",
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Madrid"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "disparador",
+      "name": "Cada dia laborable a las 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://agente:8000/salud",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "salud",
+      "name": "Comprobar que el radar responde",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://agente:8000/ingesta",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ paginas: 10, tipo: 'diaria', n8n_execution_id: $execution.id }) }}",
+        "options": {
+          "timeout": 900000
+        }
+      },
+      "id": "ingesta",
+      "name": "Ingerir el feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Cada dia laborable a las 07:00": {
+      "main": [
+        [
+          {
+            "node": "Comprobar que el radar responde",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comprobar que el radar responde": {
+      "main": [
+        [
+          {
+            "node": "Ingerir el feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

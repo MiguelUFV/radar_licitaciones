@@ -9,6 +9,8 @@ dependencies = [
     "pypdf>=6.19",
     "python-dotenv>=1.1",
     "psycopg[binary]>=3.3",
+    "fastapi>=0.141",
+    "uvicorn[standard]>=0.38",
 ]
 
 [dependency-groups]

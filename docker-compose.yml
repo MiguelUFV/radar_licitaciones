@@ -50,6 +50,25 @@ services:
     volumes:
       - datos_n8n:/home/node/.n8n
 
+  agente:
+    build: .
+    container_name: radar_agente
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-radar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:-radar}
+      TZ: ${GENERIC_TIMEZONE:-Europe/Madrid}
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      # Los ficheros descargados se quedan en el proyecto, no dentro del contenedor.
+      - ./data:/app/data
+
 volumes:
   datos_postgres:
   datos_n8n:
