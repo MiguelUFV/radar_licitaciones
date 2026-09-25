@@ -3,12 +3,12 @@
 Una sesión son unas 2–3 horas de trabajo con Claude Code. Total estimado: 14–18 sesiones.
 Ninguna fase empieza sin que la anterior cumpla su criterio de salida.
 
-**Fase activa: 0**
+**Fase activa: 2** (la 0 y la 1 están cerradas; informe en `docs/informes/fase1_datos.md`)
 
 | Fase | Objetivo | Sesiones | Puerta de salida |
 |---|---|---|---|
-| 0 | Entorno, cuentas y repositorio | 1 | Diagnóstico de entorno en verde |
-| 1 | Medir los datos reales (go / no-go) | 1–2 | Informe de datos con cifras; decisión GO |
+| 0 | Entorno, cuentas y repositorio | 1 | ✔ Cerrada el 25-09-2026: diagnóstico en verde |
+| 1 | Medir los datos reales (go / no-go) | 1–2 | ✔ Cerrada el 25-09-2026: **GO**, las tres puertas cumplidas |
 | 2 | Ingesta con trazabilidad | 2 | Ingesta diaria idempotente desde n8n |
 | 3 | Verdad de referencia y baseline (el "antes") | 1–2 | M1 y M2 del filtro CPV medidos |
 | 4 | Agente LangGraph v1 | 3 | Grafo completo con desarrollo; modelo de triaje decidido |

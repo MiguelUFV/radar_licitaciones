@@ -82,6 +82,12 @@ def medir_feed(licitaciones: list[feed.Licitacion], resumen: dict) -> dict:
     def pct(parte: int, total: int) -> float | None:
         return round(100 * parte / total, 1) if total else None
 
+    # El feed republica un expediente cada vez que cambia de estado. Para el coste importa
+    # cuántos expedientes NUEVOS hay al día, no cuántas veces aparecen.
+    expedientes = {lic.entry_id for lic in licitaciones if lic.entry_id}
+    nuevas = {lic.entry_id for lic in licitaciones if lic.estado == "PUB" and lic.entry_id}
+    nuevas_informatica = {lic.entry_id for lic in informatica if lic.estado == "PUB" and lic.entry_id}
+
     return {
         **resumen,
         "estados": dict(estados.most_common()),
@@ -90,6 +96,10 @@ def medir_feed(licitaciones: list[feed.Licitacion], resumen: dict) -> dict:
         "informatica_pct": pct(len(informatica), len(licitaciones)),
         "informatica_por_dia": round(len(informatica) / dias, 1),
         "entradas_por_dia": round(len(licitaciones) / dias, 1),
+        "expedientes_distintos": len(expedientes),
+        "nuevas_publicaciones": len(nuevas),
+        "nuevas_por_dia": round(len(nuevas) / dias, 1),
+        "nuevas_informatica_por_dia": round(len(nuevas_informatica) / dias, 1),
         "adjudicadas": len(adjudicadas),
         "adjudicadas_con_nif_pct": pct(len(con_nif), len(adjudicadas)),
         "con_solvencia_en_feed_pct": pct(len(con_solvencia), len(licitaciones)),
@@ -167,18 +177,26 @@ def estimar_coste(pliegos: dict, feed_medido: dict) -> dict:
         "claude-opus-5": (5, 25),
         "claude-haiku-4-5": (1, 5),
     }
-    por_dia = feed_medido["informatica_por_dia"]
+    # Se tria cada expediente nuevo una sola vez, y se lee el pliego solo de los de informática.
+    triadas_dia = feed_medido["nuevas_por_dia"]
+    pliegos_dia = feed_medido["nuevas_informatica_por_dia"]
     coste = {}
     for modelo, (entrada, salida) in precios.items():
-        triaje = (tokens_triaje * entrada / 1e6) * feed_medido["entradas_por_dia"]
-        extraccion = ((tokens_pliego * entrada + 1500 * salida) / 1e6) * por_dia
+        triaje = (tokens_triaje * entrada / 1e6) * triadas_dia
+        extraccion = ((tokens_pliego * entrada + 1500 * salida) / 1e6) * pliegos_dia
         coste[modelo] = {
             "triaje_dia_eur": round(triaje * usd_eur, 2),
             "extraccion_dia_eur": round(extraccion * usd_eur, 2),
             "total_dia_eur": round((triaje + extraccion) * usd_eur, 2),
         }
     return {
-        "aviso": "Estimación con 4 caracteres por token. Los tokens reales se cuentan en la Fase 4.",
+        "aviso": (
+            "Estimación con 4 caracteres por token y sin caché de prompts. Los tokens reales se "
+            "cuentan en la Fase 4. Es una cota superior: supone leer el pliego de todas las "
+            "licitaciones de informática nuevas, sin que el triaje descarte ninguna."
+        ),
+        "licitaciones_triadas_al_dia": triadas_dia,
+        "pliegos_leidos_al_dia": pliegos_dia,
         "tokens_por_pliego_estimados": tokens_pliego,
         "paginas_a_leer_por_pliego": paginas_leer,
         "por_modelo": coste,
@@ -212,11 +230,12 @@ def escribir_informe(datos: dict) -> None:
         "| Medida | Valor |",
         "|---|---|",
         f"| Páginas del feed | {f['paginas_descargadas']} ({f['megabytes']} MB) |",
-        f"| Licitaciones leídas | {f['entradas']} |",
+        f"| Entradas leídas (una licitación aparece cada vez que cambia de estado) | {f['entradas']} |",
+        f"| Expedientes distintos | {f['expedientes_distintos']} |",
         f"| Periodo cubierto | {f['desde']} a {f['hasta']} ({f['dias_cubiertos']} días) |",
-        f"| Licitaciones por día | {f['entradas_por_dia']} |",
-        f"| De informática (CPV 72 o 48) | {f['informatica']} ({f['informatica_pct']} %), "
-        f"{f['informatica_por_dia']} al día |",
+        f"| **Licitaciones nuevas al día** | **{f['nuevas_por_dia']}** |",
+        f"| De informática (CPV 72 o 48) | {f['informatica']} entradas ({f['informatica_pct']} %); "
+        f"{f['nuevas_informatica_por_dia']} nuevas al día |",
         f"| Con pliego administrativo enlazado | {f['con_pliego_administrativo']} % |",
         f"| Con lotes | {f['con_lotes_pct']} % |",
         "",
@@ -254,6 +273,10 @@ def escribir_informe(datos: dict) -> None:
         "## Coste estimado por día",
         "",
         f"_{c['aviso']}_",
+        "",
+        f"Supone triar {c['licitaciones_triadas_al_dia']} licitaciones nuevas al día y leer "
+        f"{c['pliegos_leidos_al_dia']} pliegos ({c['paginas_a_leer_por_pliego']} páginas cada uno, "
+        f"unos {c['tokens_por_pliego_estimados']} tokens).",
         "",
         "| Modelo | Triaje | Extracción | Total |",
         "|---|---|---|---|",
