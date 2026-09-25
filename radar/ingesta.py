@@ -91,7 +91,10 @@ def guardar_entrada(conexion, sha256: str, posicion: int, lic: feed.Licitacion, 
     with conexion.cursor() as cur:
         cur.execute(
             "INSERT INTO stg_entradas (raw_fichero, posicion, entry_id, entry_updated, xml)"
-            " VALUES (%s, %s, %s, %s, %s) ON CONFLICT (raw_fichero, posicion) DO NOTHING RETURNING id",
+            " VALUES (%s, %s, %s, %s, %s)"
+            # La clave incluye el fichero .atom de dentro del zip, que en la ingesta diaria no
+            # existe (migración 004); por eso el coalesce.
+            " ON CONFLICT (raw_fichero, coalesce(miembro, ''), posicion) DO NOTHING RETURNING id",
             (sha256, posicion, lic.entry_id or "(sin id)", lic.actualizada, xml),
         )
         fila = cur.fetchone()
@@ -155,8 +158,14 @@ def guardar_licitacion(conexion, stg_id: int, lic: feed.Licitacion) -> int | Non
 
         if lic.adjudicatario_nif:
             cur.execute(
-                "INSERT INTO adjudicaciones (licitacion, adjudicatario, es_pyme) VALUES (%s, %s, %s)",
-                (licitacion_id, lic.adjudicatario_nif, _bandera(lic.adjudicatario_pyme)),
+                "INSERT INTO adjudicaciones (licitacion, adjudicatario, nombre, es_pyme)"
+                " VALUES (%s, %s, %s, %s)",
+                (
+                    licitacion_id,
+                    lic.adjudicatario_nif,
+                    lic.adjudicatario_nombre,
+                    _bandera(lic.adjudicatario_pyme),
+                ),
             )
         return licitacion_id
 

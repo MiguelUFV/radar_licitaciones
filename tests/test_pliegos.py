@@ -8,7 +8,7 @@ bajó la Fase 1 venían así).
 import io
 
 import pytest
-from conftest import entrada, pagina
+from conftest import ClienteFalso, entrada, pagina
 from pypdf import PdfWriter
 
 from radar import ingesta, pliegos
@@ -32,22 +32,15 @@ def una_licitacion_con_pliego(monkeypatch, cpv_informatica: bool = True) -> None
     if cpv_informatica:
         bloque = bloque.replace("66512200", "72253200")
     paginas = {ingesta.feed.FEED_PERFILES: pagina([bloque])}
-    monkeypatch.setattr(ingesta, "crear_cliente", _sin_cliente)
+    monkeypatch.setattr(ingesta, "crear_cliente", ClienteFalso)
     monkeypatch.setattr(ingesta, "descargar", lambda url, cliente, **kw: paginas[url])
     monkeypatch.setattr(ingesta.almacen, "buscar_por_url", lambda *a, **kw: None)
     ingesta.ingerir(1, "manual")
 
 
-class _sin_cliente:  # noqa: N801  (se usa como crear_cliente(), no como clase)
-    def __enter__(self):
-        return None
-
-    def __exit__(self, *args):
-        return False
-
 
 def preparar_descarga(monkeypatch, respuesta) -> None:
-    monkeypatch.setattr(pliegos, "crear_cliente", _sin_cliente)
+    monkeypatch.setattr(pliegos, "crear_cliente", ClienteFalso)
     monkeypatch.setattr(pliegos.almacen, "buscar_por_url", lambda *a, **kw: None)
     monkeypatch.setattr(pliegos, "descargar", respuesta)
 
@@ -142,7 +135,7 @@ def test_no_se_baja_el_pliego_de_una_licitacion_anulada(bd, almacen_temporal, mo
     from conftest import BAJA_REAL
 
     paginas = {ingesta.feed.FEED_PERFILES: pagina([bloque], bajas=BAJA_REAL)}
-    monkeypatch.setattr(ingesta, "crear_cliente", _sin_cliente)
+    monkeypatch.setattr(ingesta, "crear_cliente", ClienteFalso)
     monkeypatch.setattr(ingesta, "descargar", lambda url, cliente, **kw: paginas[url])
     monkeypatch.setattr(ingesta.almacen, "buscar_por_url", lambda *a, **kw: None)
     ingesta.ingerir(1, "manual")
@@ -157,7 +150,7 @@ def test_el_pliego_ya_bajado_no_se_vuelve_a_pedir(bd, almacen_temporal, monkeypa
     def no_deberia_pedirse(url, cliente, **kw):
         raise AssertionError("se ha pedido a la red un pliego que ya estaba en disco")
 
-    monkeypatch.setattr(pliegos, "crear_cliente", _sin_cliente)
+    monkeypatch.setattr(pliegos, "crear_cliente", ClienteFalso)
     monkeypatch.setattr(pliegos, "descargar", no_deberia_pedirse)
     monkeypatch.setattr(pliegos.almacen, "buscar_por_url", lambda *a, **kw: pdf_de(2))
 

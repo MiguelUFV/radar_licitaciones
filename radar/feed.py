@@ -69,6 +69,7 @@ class Licitacion:
     anexos: list[str] = field(default_factory=list)
     solvencia_feed: str | None = None
     adjudicatario_nif: str | None = None
+    adjudicatario_nombre: str | None = None
     adjudicatario_pyme: str | None = None
     lotes: list[Lote] = field(default_factory=list)
     ficha: str | None = None
@@ -165,6 +166,7 @@ def parsear_entrada(bloque: str) -> Licitacion:
         ),
         solvencia_feed=solvencia,
         adjudicatario_nif=_uno(ganador, "ID") if ganador else None,
+        adjudicatario_nombre=_uno(ganador, "Name") if ganador else None,
         adjudicatario_pyme=_uno(bloque, "SMEAwardedIndicator"),
         lotes=lotes_de(bloque),
         ficha=(re.search(r'<link href="([^"]+)"', bloque) or [None, None])[1],

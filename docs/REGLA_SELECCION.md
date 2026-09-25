@@ -27,6 +27,18 @@ Adjudicaciones de la carga histórica:
 - con adjudicación registrada en el feed hasta `2026-08-31` (un contrato tarda meses en resolverse);
 - de la sindicación 643 de PLACSP (la misma fuente que usa el radar a diario).
 
+### Cómo se traduce a la base de datos
+
+Esto no cambia ningún criterio: lo concreta, para que aplicarlo no dependa de nadie. Se escribe
+también antes de ejecutarlo.
+
+- **Publicada** = la primera vez que ese expediente aparece en el feed, es decir `min(entry_updated)`
+  de todas las versiones con el mismo `entry_id`. El feed no trae una "fecha de publicación" aparte.
+- **Adjudicación registrada hasta el corte** = existe una versión del expediente con adjudicatario y
+  con `entry_updated <= 2026-08-31`.
+- **Adjudicaciones distintas** = expedientes distintos. Un mismo expediente aparece varias veces en
+  el feed (una por cambio de estado) y eso cuenta como **una**.
+
 ## 3. Criterios de inclusión
 
 Una empresa entra en el sorteo si cumple **todos**:

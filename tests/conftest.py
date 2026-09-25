@@ -107,3 +107,16 @@ def almacen_temporal(monkeypatch, tmp_path):
     monkeypatch.setattr(almacen, "MANIFIESTOS", tmp_path / "manifiestos")
     monkeypatch.setattr(almacen, "_INDICES", {})
     return tmp_path
+
+
+class ClienteFalso:
+    """Sustituye a crear_cliente() en los tests: no abre ninguna conexion de red."""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __enter__(self):
+        return None
+
+    def __exit__(self, *args):
+        return False

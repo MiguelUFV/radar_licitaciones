@@ -111,3 +111,8 @@ def test_ordena_las_fechas_aunque_cambie_el_huso():
     antes = feed.momento("2026-10-25T03:00:00.000+02:00")  # 01:00 UTC
     despues = feed.momento("2026-10-25T02:30:00.000+01:00")  # 01:30 UTC
     assert despues > antes
+
+
+def test_lee_el_nombre_del_adjudicatario(licitacion):
+    # La regla de seleccion descarta las UTE por el nombre, asi que sin nombre no se puede aplicar.
+    assert licitacion.adjudicatario_nombre.startswith("ASISA")
