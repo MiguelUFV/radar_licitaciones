@@ -78,7 +78,7 @@ Claude escribe `docker-compose.yml` en la Fase 0. Contenido previsto:
 | Servicio | Imagen | Puerto (solo localhost) | Para qué |
 |---|---|---|---|
 | `postgres` | `postgres:17` | 127.0.0.1:5432 | Dos bases: `radar` (datos del proyecto) y `n8n` (estado de n8n) |
-| `n8n` | `docker.n8n.io/n8nio/n8n:2.39.8` (versión fijada) | 127.0.0.1:5678 | Orquestación |
+| `n8n` | `docker.n8n.io/n8nio/n8n:2.39.8` (versión fijada) | 127.0.0.1:**5679** | Orquestación |
 | `agente` | imagen propia (se añade en la Fase 2) | 127.0.0.1:8000 | API FastAPI + grafo LangGraph |
 
 ```powershell
@@ -90,7 +90,12 @@ Los puertos se abren solo en `127.0.0.1`: nada queda expuesto a la red de tu cas
 
 ## 6. n8n
 
-1. Abre `http://localhost:5678` y crea el usuario propietario. Es local; no es una cuenta en la nube.
+**Dos instalaciones, sin pisarse** (decisión D22): la instalación propia de Miguel (`n8n start`,
+versión 2.11.4, datos en `~/.n8n`) sigue en el puerto **5678**. La del proyecto, en Docker y con
+los datos en Postgres, está en el **5679**. Se pueden usar a la vez.
+
+1. Abre `http://localhost:5679` y crea el usuario propietario del n8n del proyecto. Es local; no es
+   una cuenta en la nube y no tiene nada que ver con la que ya tienes.
 2. **Settings → n8n API → Create API key.** Cópiala en `.env` como `N8N_API_KEY`.
 3. **Credenciales de correo (SMTP):**
    - Recomendado: una cuenta de Gmail nueva, solo para el radar (no la personal ni la de la universidad).
@@ -110,7 +115,7 @@ el `--` puede perderse):
 ```bash
 claude mcp add n8n-mcp -s local \
   -e MCP_MODE=stdio -e LOG_LEVEL=error -e DISABLE_CONSOLE_OUTPUT=true \
-  -e N8N_API_URL=http://localhost:5678 -e N8N_API_KEY=PEGA_AQUI_TU_CLAVE \
+  -e N8N_API_URL=http://localhost:5679 -e N8N_API_KEY=PEGA_AQUI_TU_CLAVE \
   -- cmd /c npx -y n8n-mcp@2.87.0
 claude mcp list
 ```

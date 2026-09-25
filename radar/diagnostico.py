@@ -71,13 +71,14 @@ def comprobar_puerto(host: str, puerto: int, nombre: str, pista: str) -> tuple[b
 
 
 def comprobar_n8n() -> tuple[bool, str]:
+    """El n8n del proyecto vive en el 5679; el 5678 se deja libre para la instalación propia."""
     try:
-        r = httpx.get("http://127.0.0.1:5678/healthz", timeout=5)
+        r = httpx.get("http://127.0.0.1:5679/healthz", timeout=5)
         if r.status_code == 200:
-            return True, "n8n responde en http://localhost:5678"
+            return True, "n8n del proyecto responde en http://localhost:5679"
         return False, f"n8n contesta con el código {r.status_code}."
     except httpx.HTTPError:
-        return False, "n8n no responde. Arráncalo con: docker compose up -d"
+        return False, "n8n del proyecto no responde. Arráncalo con: docker compose up -d"
 
 
 def main() -> int:

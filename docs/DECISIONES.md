@@ -97,6 +97,18 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
 ## D19 · Tipo de cambio: BCE vía Frankfurter, guardado por fecha
 - **Motivo:** fuente pública, sin clave. Cada euro calculado se remonta a su tipo de cambio.
 
+## D22 · El n8n del proyecto vive en el puerto 5679; el 5678 queda para la instalación propia
+- **Situación (25-09-2026):** Miguel ya tenía n8n instalado con npm (versión 2.11.4, cuenta creada y
+  39 MB de datos en `~/.n8n`). El contenedor del proyecto ocupaba el mismo puerto y le impedía
+  arrancarlo.
+- **Decisión:** el contenedor se publica en el 5679, con `N8N_EDITOR_BASE_URL` y `WEBHOOK_URL`
+  apuntando a ese puerto para que las URL de los webhooks sean correctas. Las dos instalaciones
+  funcionan a la vez.
+- **Descartado:** usar la instalación propia para el proyecto (versión más antigua, datos en SQLite
+  fuera del proyecto, hay que arrancarla a mano y el entorno deja de ser reproducible en otra
+  máquina); y quedarse solo con la de Docker (obligaría a parar el contenedor para usar la suya).
+- **Coste de la decisión:** una cuenta local más, la del n8n del proyecto.
+
 ## D21 · Las páginas con requisitos se envían al modelo como imagen, no solo como texto
 - **Hallazgo del 24-09-2026** (pliego real de la AEMET, 39 páginas): el PCAP es un formulario con
   casillas marcadas. El PDF no tiene campos de formulario (están aplanados) y la extracción de texto

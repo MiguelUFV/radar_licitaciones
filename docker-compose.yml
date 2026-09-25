@@ -39,10 +39,14 @@ services:
       N8N_HOST: localhost
       N8N_PORT: 5678
       N8N_PROTOCOL: http
+      # El puerto 5678 se deja libre para la instalación propia de Miguel (n8n start).
+      # Este n8n, el del proyecto, se publica en el 5679.
+      N8N_EDITOR_BASE_URL: http://localhost:5679/
+      WEBHOOK_URL: http://localhost:5679/
       N8N_RUNNERS_ENABLED: "true"
       N8N_DIAGNOSTICS_ENABLED: "false"
     ports:
-      - "127.0.0.1:5678:5678"
+      - "127.0.0.1:5679:5678"
     volumes:
       - datos_n8n:/home/node/.n8n
 
