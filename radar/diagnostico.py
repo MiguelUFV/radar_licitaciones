@@ -1,0 +1,114 @@
+"""Comprobación del entorno. Cada fallo se explica en castellano, sin trazas.
+
+    uv run python -m radar.diagnostico
+"""
+
+from __future__ import annotations
+
+import os
+import socket
+import sys
+from pathlib import Path
+
+import httpx
+from dotenv import load_dotenv
+
+from radar.errores import ErrorRadar
+from radar.feed import FEED_PERFILES
+from radar.red import crear_cliente
+
+OK, FALLO, AVISO = "  [ok]   ", "  [FALLO]", "  [aviso]"
+
+
+def comprobar_python() -> tuple[bool, str]:
+    v = sys.version_info
+    if (v.major, v.minor) != (3, 12):
+        return False, f"Se esperaba Python 3.12 y hay {v.major}.{v.minor}. Ejecuta: uv python pin 3.12"
+    return True, f"Python {v.major}.{v.minor}.{v.micro}"
+
+
+def comprobar_env() -> list[tuple[bool, str, bool]]:
+    """Devuelve (correcto, mensaje, es_crítico) por cada variable."""
+    if not Path(".env").exists():
+        return [(False, "No existe el fichero .env. Copia .env.example y rellénalo.", True)]
+    load_dotenv()
+    resultados = []
+    for variable, critica, para_que in [
+        ("POSTGRES_PASSWORD", True, "la base de datos"),
+        ("N8N_ENCRYPTION_KEY", True, "n8n"),
+        ("ANTHROPIC_API_KEY", False, "el modelo (hace falta a partir de la Fase 4)"),
+    ]:
+        valor = os.getenv(variable)
+        if valor:
+            resultados.append((True, f"{variable} definida", critica))
+        else:
+            resultados.append((False, f"Falta {variable} en .env, necesaria para {para_que}.", critica))
+    return resultados
+
+
+def comprobar_plataforma() -> tuple[bool, str]:
+    """Descarga solo el principio del feed: comprueba red, DNS y certificado sin bajar 8 MB."""
+    try:
+        with crear_cliente(timeout=30) as cliente, cliente.stream("GET", FEED_PERFILES) as respuesta:
+            respuesta.raise_for_status()
+            for trozo in respuesta.iter_bytes():
+                if b"<feed" in trozo or b"<?xml" in trozo:
+                    return True, "La Plataforma de Contratación responde y su certificado es válido"
+                break
+        return False, "La Plataforma respondió algo que no parece el feed."
+    except ErrorRadar as e:
+        return False, str(e)
+    except httpx.HTTPError as e:
+        return False, f"No se ha podido leer el feed de la Plataforma. Detalle técnico: {type(e).__name__}"
+
+
+def comprobar_puerto(host: str, puerto: int, nombre: str, pista: str) -> tuple[bool, str]:
+    try:
+        with socket.create_connection((host, puerto), timeout=3):
+            return True, f"{nombre} responde en {host}:{puerto}"
+    except OSError:
+        return False, f"{nombre} no responde en {host}:{puerto}. {pista}"
+
+
+def comprobar_n8n() -> tuple[bool, str]:
+    try:
+        r = httpx.get("http://127.0.0.1:5678/healthz", timeout=5)
+        if r.status_code == 200:
+            return True, "n8n responde en http://localhost:5678"
+        return False, f"n8n contesta con el código {r.status_code}."
+    except httpx.HTTPError:
+        return False, "n8n no responde. Arráncalo con: docker compose up -d"
+
+
+def main() -> int:
+    print("Diagnóstico del entorno\n")
+    problemas = 0
+
+    correcto, mensaje = comprobar_python()
+    print(f"{OK if correcto else FALLO} {mensaje}")
+    problemas += not correcto
+
+    for correcto, mensaje, critica in comprobar_env():
+        marca = OK if correcto else (FALLO if critica else AVISO)
+        print(f"{marca} {mensaje}")
+        problemas += (not correcto) and critica
+
+    for comprobacion in (
+        comprobar_plataforma,
+        lambda: comprobar_puerto("127.0.0.1", 5432, "PostgreSQL", "Arráncalo con: docker compose up -d"),
+        comprobar_n8n,
+    ):
+        correcto, mensaje = comprobacion()
+        print(f"{OK if correcto else FALLO} {mensaje}")
+        problemas += not correcto
+
+    print()
+    if problemas:
+        print(f"Hay {problemas} cosa(s) que arreglar antes de seguir.")
+        return 1
+    print("Todo en orden.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

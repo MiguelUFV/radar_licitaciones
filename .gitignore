@@ -1,0 +1,28 @@
+# Secretos
+.env
+
+# Datos descargados, perfiles y correspondencias privadas (docs/DATOS.md §8)
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Claude Code: configuración local (puede contener claves)
+.claude/settings.local.json
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Pantallazos regenerables (van dentro de la guía en Word)
+ejemplos/pantallazos/
+
+# Temporales de Office y del navegador
+~$*
+.playwright-mcp/
