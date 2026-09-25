@@ -38,7 +38,8 @@ def guardar(contenido: bytes, tipo: str, url: str, manifiesto: str) -> dict:
         "ruta": str(destino.as_posix()),
         "descargado_en": datetime.now(UTC).isoformat(timespec="seconds"),
     }
-    anotar(ficha, manifiesto)
+    if _indice(manifiesto).get(url.strip()) != ficha["ruta"]:
+        anotar(ficha, manifiesto)
     return ficha
 
 
@@ -58,13 +59,16 @@ def _indice(manifiesto: str) -> dict[str, str]:
     return _INDICES[manifiesto]
 
 
-def buscar_por_url(url: str, manifiesto: str) -> bytes | None:
-    """Devuelve el contenido ya descargado en una ejecución anterior, si sigue en disco."""
-    ruta = _indice(manifiesto).get(url.strip())
-    if not ruta:
-        return None
-    fichero = Path(ruta)
-    return fichero.read_bytes() if fichero.exists() else None
+def buscar_por_url(url: str, *manifiestos: str) -> bytes | None:
+    """Devuelve el contenido ya descargado en una ejecución anterior, si sigue en disco.
+
+    Se pueden consultar varios manifiestos: lo que bajó la Fase 1 sirve para la ingesta.
+    """
+    for manifiesto in manifiestos:
+        ruta = _indice(manifiesto).get(url.strip())
+        if ruta and Path(ruta).exists():
+            return Path(ruta).read_bytes()
+    return None
 
 
 def anotar(ficha: dict, manifiesto: str) -> None:
