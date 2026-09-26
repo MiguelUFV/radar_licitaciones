@@ -15,6 +15,23 @@ Documentos de referencia (leer antes de trabajar):
 1. Leer `docs/ROADMAP.md` e identificar la fase activa y su criterio de salida.
 2. Trabajar solo en esa fase. Si algo pertenece a otra, anotarlo en el ROADMAP, no hacerlo.
 3. Al terminar: marcar lo completado en el ROADMAP y registrar en `docs/DECISIONES.md` cualquier decisión nueva.
+4. Cada fase cerrada deja un informe en `docs/informes/faseN_nombre.md`: qué hay funcionando, la
+   evidencia de su puerta de salida con la consulta o el comando que la reproduce, y lo que queda fuera.
+
+## Documentos congelados: no se editan
+Estos ficheros valen **porque son anteriores a la medición**. Cambiar uno sin más destruye el estudio,
+y el orden de los commits es la prueba de que no se cambió:
+
+| Fichero | Qué congela |
+|---|---|
+| `docs/REGLA_SELECCION.md` | Quién entra en el estudio. Anterior a la carga de datos |
+| `docs/BASELINE.md` | Cómo se construye el rival. Anterior a tener perfiles |
+| `docs/perfiles_congelados.md` | El sha256 de cada perfil |
+| `docs/baselines/empresa_*.md` | El filtro CPV de cada empresa |
+
+Si de verdad hay que cambiar uno: se añade una entrada al apartado **Cambios** del propio documento,
+con fecha y motivo, y **se vuelve a medir** lo que dependa de él. Nunca se edita el texto original.
+Los perfiles tienen además un candado: `radar.perfiles` se para si el texto no coincide con su huella.
 
 ## Idioma
 Español en código (nombres de funciones y variables incluidos), comentarios, mensajes de error,
@@ -34,6 +51,8 @@ commits y documentación. Términos técnicos sin traducción forzada (feed, com
 6. **Interfaz sobria.** Sin emojis, sin superlativos, sin plantillas genéricas.
 7. **Coste controlado.** Toda llamada al LLM pasa por `radar/llm.py`, que registra tokens, coste en
    USD y en EUR, y respeta el presupuesto de `.env`. Prohibido llamar al SDK desde otro sitio.
+   *Ese módulo todavía no existe: es lo primero de la Fase 4. Hasta entonces no hay ninguna llamada a
+   ningún modelo en el proyecto.*
 
 ## Comandos
 ```bash
@@ -50,6 +69,15 @@ de n8n está apagada a propósito, D32).
 que crea `radar_test`, aplica las migraciones y vacía las tablas. La base de trabajo (`radar`) nunca
 recibe filas de prueba. Las migraciones son ficheros numerados en `sql/migraciones/` y se aplican con
 `radar.bd.aplicar_migraciones()`, que las anota para no repetirlas.
+
+Si un test necesita insertar una adjudicación con el DNI en claro (para probar que se limpia o que se
+avisa), la base lo rechaza: hay que envolverlo en `como_antes_de_la_restriccion(bd)`, de `conftest`,
+que abre la puerta y vuelve a cerrarla al salir.
+
+**`data/` no está en git y no se puede perder: 4,2 GB.** Contiene la capa raw, de la que se reconstruye
+toda la base sin volver a descargar nada, y `data/privado/perfiles/`, con los perfiles de las empresas
+(identifican a la empresa, por eso no se versionan). Los tests nunca escriben ahí: usan la fixture
+`almacen_temporal`.
 
 ## Arquitectura
 El dato va siempre en la misma dirección, y cada capa solo conoce la anterior:
@@ -96,6 +124,10 @@ camino muestra una traza al usuario.
 - Nada de datos personales de personas físicas en salidas públicas (ver DATOS §7).
 
 ## Git
-- Rama por fase: `fase-N-nombre`. Commits pequeños, en español, en imperativo.
+- **Todo va a `main`.** La regla original era una rama por fase; con un solo autor y sin nadie que
+  revise, la rama solo añadía ceremonia, y las fases 0 a 3 se cerraron directamente en `main`. Se deja
+  escrito así para que coincida con lo que hay. Si algún día hay revisión, se vuelve a ramas por fase.
+- Commits pequeños, en español, en imperativo. El mensaje dice **qué fallaba y cómo se demostró**, no
+  solo qué se cambió: es la única forma de que dentro de un mes se entienda por qué existe un arreglo.
 - Nunca se commitean `.env`, `data/` ni credenciales de n8n.
 - Los workflows de n8n se exportan a `n8n/workflows/` y se versionan.
