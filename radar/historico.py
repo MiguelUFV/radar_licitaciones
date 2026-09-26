@@ -115,6 +115,22 @@ def interesa(lic, dentro_de_la_ventana: bool, conocidos: set[str]) -> bool:
     return bool(lic.adjudicatario_nif) and lic.entry_id in conocidos
 
 
+def totales_del_mes(conexion, sha256: str) -> dict:
+    """Lo que hay en la base para ese zip, venga de la pasada que venga."""
+    with conexion.cursor() as cur:
+        cur.execute(
+            "SELECT count(*) FILTER (WHERE l.id IS NOT NULL),"
+            " count(*) FILTER (WHERE a.id IS NOT NULL)"
+            " FROM stg_entradas s"
+            " LEFT JOIN licitaciones l ON l.stg_entrada = s.id"
+            " LEFT JOIN adjudicaciones a ON a.licitacion = l.id"
+            " WHERE s.raw_fichero = %s",
+            (sha256,),
+        )
+        licitaciones, adjudicaciones = cur.fetchone()
+    return {"licitaciones": licitaciones, "adjudicaciones": adjudicaciones}
+
+
 def cargar_mes(conexion, mes: str, run_id, cliente, ventana: tuple[str, str] | None = None) -> dict:
     url = url_del_mes(mes)
     contenido = almacen.buscar_por_url(url, MANIFIESTO)
@@ -161,6 +177,11 @@ def cargar_mes(conexion, mes: str, run_id, cliente, ventana: tuple[str, str] | N
                     cuenta["adjudicaciones"] += 1 if lic.adjudicatario_nif else 0
             conexion.commit()
 
+    # Lo que se anota es lo que hay en la base para ese mes, no lo que ha insertado esta
+    # pasada: si una carga se corta a la mitad y se relanza, la segunda solo añade lo que
+    # faltaba, y decir "998 licitaciones" de un mes que tiene 55.380 sería engañoso.
+    cuenta.update(totales_del_mes(conexion, ficha["sha256"]))
+
     with conexion.cursor() as cur:
         cur.execute(
             "INSERT INTO historico_meses (mes, raw_fichero, ficheros_atom, entradas, licitaciones,"
@@ -204,7 +225,8 @@ def cargar(desde: str, hasta: str, rehacer: bool = False, ventana: tuple[str, st
                     print(
                         f"  {mes}: {cuenta['megabytes']} MB, {cuenta['ficheros_atom']} ficheros, "
                         f"{cuenta['entradas']} entradas ({cuenta['descartadas']} fuera de estudio), "
-                        f"{cuenta['licitaciones']} licitaciones nuevas",
+                        f"{cuenta['licitaciones']} licitaciones y {cuenta['adjudicaciones']} "
+                        "adjudicaciones en la base",
                         flush=True,
                     )
             cerrar_ejecucion(conexion, run_id, "ok")

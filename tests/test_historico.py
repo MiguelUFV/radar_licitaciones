@@ -157,3 +157,19 @@ def test_la_ventana_deja_fuera_lo_que_no_es_del_estudio(bd, almacen_temporal, mo
     with bd() as conexion, conexion.cursor() as cur:
         cur.execute("SELECT count(*) FROM licitaciones")
         assert cur.fetchone()[0] == 1
+
+
+def test_el_mes_anota_lo_que_hay_en_la_base_no_lo_que_inserto_esta_pasada(bd, almacen_temporal, monkeypatch):
+    # Si una carga se corta a la mitad y se relanza, la segunda pasada solo anade lo que
+    # faltaba. El mes tiene que seguir diciendo cuantas licitaciones tiene, no cuantas ha
+    # metido esa pasada.
+    datos = zip_de_prueba(
+        {"p1.atom": pagina([entrada("https://ejemplo.es/1", "2025-01-05T10:00:00.000+01:00")])}
+    )
+    preparar(monkeypatch, datos)
+    historico.cargar("2025-01", "2025-01")
+    historico.cargar("2025-01", "2025-01", rehacer=True)
+
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT entradas, licitaciones FROM historico_meses WHERE mes = '2025-01'")
+        assert cur.fetchone() == (1, 1)
