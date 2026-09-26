@@ -78,7 +78,12 @@ el mismo fichero descargado dos veces ocupa un solo sitio.
 ### L1 · Staging
 | Tabla | Campos clave | Apunta a |
 |---|---|---|
-| `stg_entradas` | `entry_id` (el `<id>` Atom), `entry_updated`, `posicion`, `xml` (íntegro), `estado_parseo` (ok · cuarentena), `error` | `raw_fichero_id` (página del feed) |
+| `stg_entradas` | `entry_id` (el `<id>` Atom), `entry_updated`, `posicion`, `miembro`, `xml`, `estado_parseo` (ok · cuarentena), `error` | `raw_fichero` (la página del feed, o el zip del mes) |
+
+En la ingesta diaria se guarda el XML íntegro de cada entrada. En la carga histórica no: son
+cientos de miles y el zip del mes es inmutable, así que se guarda el puntero (`raw_fichero` +
+`miembro` + `posicion`) y `radar.historico.entrada_original()` saca el original cuando hace falta.
+La trazabilidad no se pierde: apunta al fichero tal como se descargó, no a una copia.
 
 ### L2 · Núcleo
 | Tabla | Campos clave | Apunta a |
@@ -100,7 +105,8 @@ fila en `licitaciones`.
 |---|---|---|
 | `ejecuciones` | `run_id`, `tipo` (diaria · histórica · evaluación), `n8n_execution_id`, `git_commit`, `config_sha256`, modelos, `presupuesto_eur`, inicio, fin, `estado`, `mensaje` | `perfil_id` |
 | `incidencias` | `ocurrida_en`, `workflow`, `n8n_execution_id`, `nodo`, `mensaje` (en español, con el detalle técnico al final) | — (las escribe n8n directamente en Postgres: si el agente está caído, el aviso tiene que quedar igual) |
-| `perfiles` | `alias` (Empresa A…), `texto`, `sha256`, `fuentes` (URL + fecha), `cifra_negocio` + fuente, `rol` (desarrollo · test), `congelado_en` | — |
+| `perfiles` | `alias` (Empresa A…), `nif`, `texto`, `texto_sha256`, `fuentes` (URL + fecha), `cifra_negocio` + fuente, `rol` (desarrollo · test), `congelado_en`, y con qué se eligió: `semilla` y `regla_sha256` | `ejecucion_id` |
+| `historico_meses` | `mes`, ficheros .atom, entradas, licitaciones y adjudicaciones de ese mes | `raw_fichero` (el zip), `ejecucion_id` |
 | `llm_llamadas` | `nodo`, `modelo`, `prompt_version`, `prompt_sha256`, `request_id` de Anthropic, tokens (entrada, salida, lectura de caché, escritura de caché), `batch`, `coste_usd`, `coste_eur`, `latencia_ms`, `stop_reason`, `respuesta` (íntegra) | `run_id`, `licitacion_id`, `tipo_cambio_fecha` |
 | `extracciones` | `campo`, `valor`, `unidad`, `cita_literal`, `pagina`, `cita_verificada` | `documento_id`, `llm_llamada_id`, `run_id` |
 | `decisiones` | `puntuacion_triaje`, `resultado` (descartada · apta · no_apta · revisar · pendiente), `motivo`, `reglas_version`, `ruta_grafo` (nodos recorridos) | `run_id`, `licitacion_id`, `perfil_id`, `extraccion_ids[]`, `thread_id` del checkpoint |
@@ -113,7 +119,7 @@ fila en `licitaciones`.
 | `eval_verdad` | Contrato ganado por una empresa del estudio | `perfil_id`, `adjudicacion_id` |
 | `eval_etiquetas` | `etiqueta`, `etiquetador`, `a_ciegas`, `fecha` | `licitacion_id`, `perfil_id` |
 | `eval_cronometro` | `dia`, `modo` (manual · radar), `minutos`, `decisiones` | — |
-| `eval_resultados` | `metrica`, `valor`, `ic_inferior`, `ic_superior`, `n`, `git_commit`, `comando` | `run_id` |
+| `eval_resultados` | `metrica` (M1…M8), `variante` (baseline_a · baseline_b · agente), `periodo`, `valor`, `ic_inferior`, `ic_superior`, `n`, `detalle`, `git_commit`, `comando` | `run_id`, `alias` del perfil |
 | `feedback_usuario` (Fase 7) | `decision` (me presento · no) | `licitacion_id`, `n8n_execution_id` |
 
 ## 5. Identificadores

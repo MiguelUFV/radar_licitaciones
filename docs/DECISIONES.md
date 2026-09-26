@@ -180,3 +180,41 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
 - **Decisión:** la fixture `bd` crea `radar_test` si no existe, aplica las migraciones y vacía las
   tablas antes de cada test. Si no hay PostgreSQL levantado, esos tests se saltan solos y la
   integración continua sigue funcionando.
+
+## D28 · El histórico se carga desde los zip mensuales, no paginando el feed hacia atrás
+- **Comprobado el 25-09-2026:** la Plataforma publica un zip por mes en la misma ruta de sindicación
+  (`..._202501.zip`, 139,6 MB, `application/zip`, ~94 ficheros .atom dentro). La Fase 1 lo había
+  dejado como incógnita y el plan B era paginar miles de veces hacia atrás.
+- **Decisión:** la carga histórica va mes a mes desde esos zip. Es reanudable: lo ya cargado se salta
+  y lo ya descargado no se vuelve a pedir.
+- **Lo que cuesta:** unos 137 MB y 4 minutos por mes (el servidor va a 0,6 MB/s y no admite descargas
+  por rango, así que cada mes se baja entero). Un mes trae unas 46.000 entradas y 20.000
+  adjudicaciones.
+- **De los meses posteriores al periodo de estudio solo se guarda quién ganó** los expedientes de ese
+  periodo. Sin ese filtro habría que cargar 20 meses enteros: más de 3 horas y millones de filas que
+  no se usan para nada.
+- **Del histórico no se copia el XML a la base:** se guarda el puntero (zip + fichero .atom +
+  posición) y `radar.historico.entrada_original()` lo recupera del zip cuando hace falta. Son
+  cientos de miles de entradas y el zip es inmutable.
+- **Fragilidad conocida:** una descarga de 4 minutos no sobrevive a que el portátil se duerma. Pasó
+  el 25-09-2026: la carga se quedó colgada con la ejecución abierta. La espera sin recibir un byte
+  bajó de 900 a 120 segundos, y la carga se relanza con el mismo comando y sigue donde estaba.
+
+## D29 · Dos filtros de referencia en lugar de uno, los dos calculados
+- El razonamiento completo y las cifras que lo motivan están en `docs/BASELINE.md` (apartados 1 a 3 y
+  el registro de cambios). Resumen: con un filtro único derivado del perfil salían 218 códigos,
+  incluida la división 50 entera (reparación de barcos y ascensores) porque el perfil decía
+  "mantenimiento". Midiendo a igual volumen, un rival así no distingue nada.
+- **Decisión:** Baseline A (divisiones CPV 72 y 48, lo que usa cualquiera) y Baseline B (derivado del
+  perfil, deliberadamente ancho). Ningún paso a mano en ninguno de los dos. **Se publican las dos
+  cifras**, aunque una deje al radar en peor lugar.
+- **Revisar si:** el Baseline B resulta tan ancho que deja pasar casi todo; entonces se dirá en el
+  informe y la comparación buena será la del A.
+
+## D30 · Las métricas se calculan con la versión del expediente que estaba publicada
+- **Motivo:** un expediente cambia de versión cada vez que cambia de estado, y la última puede traer
+  datos que solo se supieron al adjudicar (hasta el CPV puede cambiar). Medir con la última versión
+  le daría al filtro información que no pudo tener mientras el plazo estaba abierto.
+- **Decisión:** M1 y M2 se calculan sobre la **versión más antigua** de cada expediente.
+- **Comprobado con un test de control negativo:** midiendo con la última versión, el filtro se apunta
+  un contrato que se publicó como obra y solo apareció como informática al adjudicarse.
