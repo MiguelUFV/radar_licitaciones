@@ -5,6 +5,8 @@ lleva uno raro, revienta con una traza delante del usuario, que es justo lo que 
 no permite (CLAUDE.md, innegociable 3).
 """
 
+from conftest import como_antes_de_la_restriccion
+
 from radar import estado
 
 
@@ -21,7 +23,7 @@ def test_el_informe_dice_lo_que_hay_aunque_no_haya_nada(bd):
 
 
 def test_avisa_de_los_datos_personales_en_claro(bd):
-    with bd() as conexion, conexion.cursor() as cur:
+    with como_antes_de_la_restriccion(bd), bd() as conexion, conexion.cursor() as cur:
         cur.execute(
             "INSERT INTO raw_ficheros (sha256, tipo, url, ruta, bytes, descargado_en)"
             " VALUES (repeat('f', 64), 'feed', 'https://ejemplo.es/f', 'x', 1, now())"
@@ -42,7 +44,8 @@ def test_avisa_de_los_datos_personales_en_claro(bd):
         )
         conexion.commit()
 
-    texto = estado.informe()
+        texto = estado.informe()
+
     assert "datos personales guardados en claro" in texto
     texto.encode("cp1252")
 

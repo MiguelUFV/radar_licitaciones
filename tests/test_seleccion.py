@@ -112,7 +112,7 @@ def poblacion() -> list[tuple]:
     for empresa in range(6):
         for _ in range(9):
             filas.append((f"B0000000{empresa}", f"EMPRESA {empresa} SL", ["72000000"], True))
-    filas.append(("12345678Z", "PERSONA FISICA", ["72000000"], True))
+    filas.append(("pf_1a2b3c4d5e6f7a8b9c0d1e2f", None, ["72000000"], True))
     filas.append(("U11111111", "UTE ALGO", ["72000000"], True))
     return filas
 

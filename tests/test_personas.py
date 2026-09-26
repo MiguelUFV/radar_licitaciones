@@ -5,6 +5,7 @@ cifras, NIE con X/Y/Z), no corresponden a nadie.
 """
 
 import pytest
+from conftest import como_antes_de_la_restriccion
 
 from radar import personas
 from radar.errores import FaltaConfiguracion
@@ -93,30 +94,34 @@ def test_anonimiza_lo_que_ya_estaba_guardado(bd, monkeypatch):
     monkeypatch.setenv("SAL_PERSONAS", SAL)
     monkeypatch.setattr(personas, "load_dotenv", lambda *a, **kw: None)
 
-    with bd() as conexion, conexion.cursor() as cur:
-        cur.execute(
-            "INSERT INTO raw_ficheros (sha256, tipo, url, ruta, bytes, descargado_en)"
-            " VALUES (repeat('d', 64), 'feed', 'https://ejemplo.es/f', 'x', 1, now())"
-        )
-        cur.execute(
-            "INSERT INTO stg_entradas (raw_fichero, posicion, entry_id, entry_updated)"
-            " VALUES (repeat('d', 64), 0, 'e1', '2025-03-01T10:00:00+01:00') RETURNING id"
-        )
-        stg = cur.fetchone()[0]
-        cur.execute(
-            "INSERT INTO licitaciones (entry_id, entry_updated, stg_entrada)"
-            " VALUES ('e1', '2025-03-01T10:00:00+01:00', %s) RETURNING id",
-            (stg,),
-        )
-        licitacion = cur.fetchone()[0]
-        for nif, nombre in [("12345678Z", "NOMBRE APELLIDO"), ("B12345678", "EJEMPLO SL")]:
+    # La limpieza tiene que correr con la puerta abierta: es lo que arregla las filas de
+    # antes de que existiera la restricción.
+    with como_antes_de_la_restriccion(bd):
+        with bd() as conexion, conexion.cursor() as cur:
             cur.execute(
-                "INSERT INTO adjudicaciones (licitacion, adjudicatario, nombre) VALUES (%s, %s, %s)",
-                (licitacion, nif, nombre),
+                "INSERT INTO raw_ficheros (sha256, tipo, url, ruta, bytes, descargado_en)"
+                " VALUES (repeat('d', 64), 'feed', 'https://ejemplo.es/f', 'x', 1, now())"
             )
-        conexion.commit()
+            cur.execute(
+                "INSERT INTO stg_entradas (raw_fichero, posicion, entry_id, entry_updated)"
+                " VALUES (repeat('d', 64), 0, 'e1', '2025-03-01T10:00:00+01:00') RETURNING id"
+            )
+            stg = cur.fetchone()[0]
+            cur.execute(
+                "INSERT INTO licitaciones (entry_id, entry_updated, stg_entrada)"
+                " VALUES ('e1', '2025-03-01T10:00:00+01:00', %s) RETURNING id",
+                (stg,),
+            )
+            licitacion = cur.fetchone()[0]
+            for nif, nombre in [("12345678Z", "NOMBRE APELLIDO"), ("B12345678", "EJEMPLO SL")]:
+                cur.execute(
+                    "INSERT INTO adjudicaciones (licitacion, adjudicatario, nombre) VALUES (%s, %s, %s)",
+                    (licitacion, nif, nombre),
+                )
+            conexion.commit()
 
-    resumen = personas.anonimizar_lo_ya_guardado()
+        resumen = personas.anonimizar_lo_ya_guardado()
+
     assert resumen["personas"] == 1
     assert resumen["adjudicaciones"] == 1
 
@@ -134,7 +139,7 @@ def test_el_diagnostico_avisa_si_queda_un_dni_en_claro(bd):
     correcto, mensaje = diagnostico.comprobar_datos_personales()
     assert correcto is True
 
-    with bd() as conexion, conexion.cursor() as cur:
+    with como_antes_de_la_restriccion(bd), bd() as conexion, conexion.cursor() as cur:
         cur.execute(
             "INSERT INTO raw_ficheros (sha256, tipo, url, ruta, bytes, descargado_en)"
             " VALUES (repeat('e', 64), 'feed', 'https://ejemplo.es/f', 'x', 1, now())"
@@ -155,7 +160,58 @@ def test_el_diagnostico_avisa_si_queda_un_dni_en_claro(bd):
         )
         conexion.commit()
 
-    correcto, mensaje = diagnostico.comprobar_datos_personales()
+        correcto, mensaje = diagnostico.comprobar_datos_personales()
+
     assert correcto is False
     assert "en claro" in mensaje
     assert "radar.personas --anonimizar" in mensaje
+
+
+def test_la_base_rechaza_un_dni_aunque_el_codigo_falle(bd):
+    # Defensa en profundidad: si manana alguien inserta por otro camino y se olvida de
+    # seudonimizar, la base lo rechaza igual.
+    import psycopg
+
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute(
+            "INSERT INTO raw_ficheros (sha256, tipo, url, ruta, bytes, descargado_en)"
+            " VALUES (repeat('9', 64), 'feed', 'https://ejemplo.es/f', 'x', 1, now())"
+        )
+        cur.execute(
+            "INSERT INTO stg_entradas (raw_fichero, posicion, entry_id, entry_updated)"
+            " VALUES (repeat('9', 64), 0, 'e1', '2025-03-01T10:00:00+01:00') RETURNING id"
+        )
+        stg = cur.fetchone()[0]
+        cur.execute(
+            "INSERT INTO licitaciones (entry_id, entry_updated, stg_entrada)"
+            " VALUES ('e1', '2025-03-01T10:00:00+01:00', %s) RETURNING id",
+            (stg,),
+        )
+        licitacion = cur.fetchone()[0]
+        conexion.commit()
+
+    for identificador in ("12345678Z", "X1234567L"):
+        with bd() as conexion, conexion.cursor() as cur:
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cur.execute(
+                    "INSERT INTO adjudicaciones (licitacion, adjudicatario) VALUES (%s, %s)",
+                    (licitacion, identificador),
+                )
+
+    # Y de una persona seudonimizada tampoco se puede guardar el nombre.
+    with bd() as conexion, conexion.cursor() as cur:
+        with pytest.raises(psycopg.errors.CheckViolation):
+            cur.execute(
+                "INSERT INTO adjudicaciones (licitacion, adjudicatario, nombre)"
+                " VALUES (%s, 'pf_abc123', 'NOMBRE APELLIDO')",
+                (licitacion,),
+            )
+
+    # Una empresa entra sin problema.
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute(
+            "INSERT INTO adjudicaciones (licitacion, adjudicatario, nombre)"
+            " VALUES (%s, 'B12345678', 'EJEMPLO SL')",
+            (licitacion,),
+        )
+        conexion.commit()

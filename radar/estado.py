@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from radar import personas
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 
@@ -97,10 +98,7 @@ def informe() -> str:
 
         lineas += ["", "AVISOS"]
         avisos = []
-        cur.execute(
-            "SELECT count(*) FROM adjudicaciones WHERE adjudicatario IS NOT NULL"
-            " AND left(adjudicatario, 1) !~ '[ABCDEFGHJNPQRSUVW]' AND adjudicatario NOT LIKE 'pf%'"
-        )
+        cur.execute(f"SELECT count(*) FROM adjudicaciones WHERE {personas.SQL_EN_CLARO}")
         en_claro = cur.fetchone()[0]
         if en_claro:
             avisos.append(

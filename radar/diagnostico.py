@@ -85,14 +85,11 @@ def comprobar_n8n() -> tuple[bool, str]:
 def comprobar_datos_personales() -> tuple[bool, str]:
     """Ningún DNI ni NIE de adjudicatario puede estar guardado en claro (docs/DATOS.md §7)."""
     try:
+        from radar import personas
         from radar.bd import conectar
 
         with conectar() as conexion, conexion.cursor() as cur:
-            cur.execute(
-                "SELECT count(*) FROM adjudicaciones"
-                " WHERE adjudicatario IS NOT NULL AND left(adjudicatario, 1) !~ '[ABCDEFGHJNPQRSUVW]'"
-                " AND adjudicatario NOT LIKE 'pf%'"
-            )
+            cur.execute(f"SELECT count(*) FROM adjudicaciones WHERE {personas.SQL_EN_CLARO}")
             en_claro = cur.fetchone()[0]
     except ErrorRadar as e:
         return False, e.mensaje

@@ -11,6 +11,7 @@ trabajo nunca recibe filas de prueba (CLAUDE.md, innegociable 2).
 
 from __future__ import annotations
 
+import contextlib
 import re
 from pathlib import Path
 
@@ -120,3 +121,28 @@ class ClienteFalso:
 
     def __exit__(self, *args):
         return False
+
+
+RESTRICCIONES = Path("sql/migraciones/007_sin_datos_personales.sql")
+
+
+@contextlib.contextmanager
+def como_antes_de_la_restriccion(bd):
+    """Deja meter una fila con el DNI en claro, como las que habia antes de prohibirlo.
+
+    Hace falta para probar que la limpieza y los avisos funcionan: hoy la base ya no acepta
+    esas filas. Al salir borra lo que haya quedado mal y vuelve a poner la restriccion.
+    """
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("ALTER TABLE adjudicaciones DROP CONSTRAINT adjudicaciones_sin_datos_personales")
+        cur.execute("ALTER TABLE adjudicaciones DROP CONSTRAINT adjudicaciones_persona_sin_nombre")
+        conexion.commit()
+    try:
+        yield
+    finally:
+        from radar.personas import SQL_EN_CLARO
+
+        with bd() as conexion, conexion.cursor() as cur:
+            cur.execute(f"DELETE FROM adjudicaciones WHERE {SQL_EN_CLARO}")
+            cur.execute(RESTRICCIONES.read_text(encoding="utf-8"))
+            conexion.commit()

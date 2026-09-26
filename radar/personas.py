@@ -26,6 +26,16 @@ from radar.errores import FaltaConfiguracion
 LETRAS_EMPRESA = "ABCDEFGHJNPQRSUVW"
 PREFIJO = "pf_"
 
+# La condición que distingue "esto es un dato personal en claro" del resto, escrita una sola
+# vez: la usan la restricción de la base, el diagnóstico y el informe de estado. Cuando estaba
+# repetida se desincronizó, y el diagnóstico daba 1.849 falsas alarmas por NIF de empresa
+# escritos en minúscula en el feed.
+SQL_EN_CLARO = (
+    "adjudicatario IS NOT NULL"
+    f" AND upper(left(adjudicatario, 1)) !~ '^[{LETRAS_EMPRESA}]$'"
+    f" AND adjudicatario NOT LIKE '{PREFIJO[:2]}|{PREFIJO[2:]}%' ESCAPE '|'"
+)
+
 
 def es_persona_fisica(nif: str | None) -> bool:
     if not nif:
