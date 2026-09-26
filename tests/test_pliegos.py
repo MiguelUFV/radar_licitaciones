@@ -38,7 +38,6 @@ def una_licitacion_con_pliego(monkeypatch, cpv_informatica: bool = True) -> None
     ingesta.ingerir(1, "manual")
 
 
-
 def preparar_descarga(monkeypatch, respuesta) -> None:
     monkeypatch.setattr(pliegos, "crear_cliente", ClienteFalso)
     monkeypatch.setattr(pliegos.almacen, "buscar_por_url", lambda *a, **kw: None)

@@ -1,4 +1,4 @@
-# El "antes": cómo se construye el filtro con el que se compara el radar
+# El "antes": los filtros con los que se compara el radar
 
 **Escrito y congelado el 25-09-2026, antes de tener perfiles y antes de medir nada.**
 
@@ -7,62 +7,96 @@ Plataforma, filtrar por unos cuantos códigos CPV y mirar lo que sale. Eso es el
 
 ## 1. La trampa que hay que evitar
 
-Es facilísimo construir un baseline malo y "ganarle". Un filtro CPV mal elegido a propósito haría que
-el radar pareciera brillante sin serlo. Por eso el baseline se construye con tres reglas:
+Es facilísimo construir un rival malo y "ganarle". Un filtro CPV elegido a conveniencia haría que el
+radar pareciera brillante sin serlo. La defensa de este proyecto es no elegir **ninguno** a mano:
 
-1. **Sale del perfil por un procedimiento escrito**, no a ojo y no después de ver los resultados.
-2. **Se le puede añadir, nunca quitar.** Si al revisarlo se ve que falta un código que cualquiera de
-   esa empresa buscaría, se añade y se anota el motivo. Quitar códigos está prohibido, porque quitar
-   es justo lo que haría que el baseline perdiera.
-3. **Se congela antes de medir**, con el hash del perfil del que sale y el del vocabulario oficial.
+- Los dos filtros se calculan solos, sin que nadie decida qué códigos entran.
+- Los dos se congelan antes de medir nada.
+- Los dos se publican en el informe, con sus cifras, aunque uno deje al radar en peor lugar.
 
-La regla 2 juega **a favor del baseline**: cuantos más códigos tenga, más contratos encuentra y más
-alto es su recall. Si aun así el radar gana, gana contra la versión buena del rival.
+## 2. Los dos filtros
 
-## 2. De dónde salen los códigos
+### Baseline A — el que usa todo el mundo
+
+Divisiones CPV **72** (servicios TI) y **48** (paquetes de software). Es lo que tiene configurado
+cualquier empresa de informática en su alerta, y no hay nada que decidir: son dos números.
+
+Es **estrecho**: en la muestra de la Fase 1, solo el 4 % de las licitaciones llevan un CPV 72 o 48.
+Deja fuera lo que se publica bajo otros códigos (equipos informáticos en la 30, servicios
+empresariales en la 79), que es justo donde la tesis dice que hay contratos perdidos.
+
+### Baseline B — uno generoso, derivado del perfil
+
+Se saca del perfil de cada empresa con este procedimiento:
+
+1. Del perfil se toman **solo los apartados 1 (qué hace) y 2 (servicios)**. Ni certificaciones, ni
+   tamaño, ni lo que la empresa declara no hacer.
+2. Ese texto se normaliza (minúsculas, sin tildes) y se parte en palabras de 5 letras o más.
+3. Se descartan las palabras generales (`servicios`, `suministro`, `gestion`…). La lista está en
+   `radar/baseline.py`, es corta a propósito y se congela con el resto.
+4. Entra en el filtro todo código de **división** (`XX000000`) o de **grupo** (`XXXX0000`) cuya
+   descripción oficial use alguna de esas palabras como palabra suelta.
+5. Cada código se reduce a su prefijo sin ceros finales, **nunca a menos de dos dígitos**
+   (`72250000` → `7225`; `30000000` → `30`, no `3`, que sería agricultura). Una licitación pasa el
+   filtro si alguno de sus CPV empieza por alguno de esos prefijos, que es como busca la Plataforma.
 
 **Fuente:** vocabulario oficial CPV 2008 de la Dirección General del Patrimonio del Estado, el mismo
-que usa la Plataforma:
-`http://contrataciondelestado.es/codice/cl/2.04/CPV2008-2.04.gc` — 9.454 códigos con su descripción
-oficial en español. Se guarda en la capa raw con su sha256, como cualquier otro dato descargado.
+que usa la Plataforma: `http://contrataciondelestado.es/codice/cl/2.04/CPV2008-2.04.gc`, 9.454
+códigos. Se guarda en la capa raw con su sha256.
 
-## 3. Procedimiento
+Es **ancho**, y a propósito. Con el perfil de ejemplo salen 47 prefijos que cubren divisiones enteras
+(48, 50, 51, 72, 73, 75…). Ningún humano marcaría tantas casillas: este filtro le da al rival mucho
+más de lo que tendría en la realidad.
 
-1. Del perfil se toman los apartados **1 (qué hace)** y **2 (servicios)**. Nada más: ni el tamaño ni
-   las certificaciones.
-2. Ese texto se normaliza: minúsculas, sin tildes, y se quitan las palabras vacías (preposiciones,
-   artículos y verbos genéricos como "ofrecer" o "realizar").
-3. Quedan los **términos significativos**: palabras de 5 letras o más.
-4. Un código CPV entra en la semilla si su descripción oficial contiene alguno de esos términos.
-5. Cada código se reduce a su **prefijo sin ceros finales** (`72250000` → `7225`). Una licitación
-   pasa el filtro si alguno de sus CPV empieza por alguno de esos prefijos, que es como busca la
-   Plataforma.
-6. **Revisión humana, una vez:** Miguel mira la lista y puede añadir códigos, cada uno con su motivo
-   en una línea. No puede quitar ninguno. Después se congela.
+## 3. Por qué dos y no uno
 
-## 4. Palabras clave (opcional)
+Porque cada uno tiene un defecto opuesto, y juntos lo tapan:
 
-Si el perfil deja claro que la empresa se define por algo que el CPV no distingue (por ejemplo,
-"historia clínica electrónica"), se puede añadir una lista corta de palabras que se buscan en el
-título de la licitación. Se congela igual, y se dice en el informe si se usaron.
+| | Baseline A | Baseline B |
+|---|---|---|
+| Amplitud | Estrecho (4 % de las licitaciones) | Ancho (divisiones enteras) |
+| Riesgo | Que sea un rival demasiado fácil | Que deje pasar tanto que gane por volumen |
+| Qué demuestra si el radar gana | Que encuentra lo que el filtro típico no ve | Que no es solo cuestión de mirar más |
 
-## 5. Lo que se mide con él
+Si el radar solo ganara a A, el resultado sería flojo y se diría. **Las dos cifras se publican.**
+
+## 4. Lo que se mide
 
 - **M1, recall a igual volumen:** de los contratos que la empresa ganó de verdad, ¿cuántos estaban en
-  la lista del baseline? ¿Y en la del radar, recortada al mismo tamaño diario?
+  la lista? La lista del radar se recorta al mismo tamaño diario medio que la del baseline con el que
+  se compara.
 - **M2, volumen:** cuántas licitaciones al día deja pasar cada uno.
 
-El baseline no lee ningún pliego: es un filtro sobre lo que ya viene en el feed. Esa es exactamente
-la diferencia que el proyecto quiere medir.
+Ninguno de los dos baselines lee un pliego: son filtros sobre lo que ya viene en el feed. Esa es
+exactamente la diferencia que el proyecto quiere medir.
 
-## 6. Lo que este baseline NO es
+## 5. Lo que estos baselines NO son
 
-No es "lo mejor que se puede hacer sin IA". Alguien con años de oficio busca mejor que un filtro CPV.
-Es **lo que hace la mayoría**, y así se dirá en el informe: el radar se compara con la práctica
-habitual, no con el mejor experto posible.
+No son "lo mejor que se puede hacer sin IA". Alguien con años de oficio busca mejor. Son **lo que
+hace la mayoría** (A) y **una versión deliberadamente generosa** (B), y así se dirá en el informe: el
+radar se compara con la práctica habitual, no con el mejor experto posible.
 
 ---
 
 ## Cambios
 
-_Ninguno. Si algún día hay uno, va aquí con su fecha y su motivo._
+**25-09-2026 · Solo se buscan términos en los códigos de división y de grupo, y el prefijo nunca baja
+de dos dígitos.** El procedimiento decía "un código entra si su descripción contiene el término", sin
+distinguir el nivel. Al montarlo se vio que "software" aparece en 313 de los 9.454 códigos, casi
+todos de ocho dígitos; al reducirlos a su prefijo salían filtros tan estrechos (`48311`) que dejarían
+fuera licitaciones vecinas (`48312`). Además, `30000000` sin ceros finales se quedaba en `3`, que
+casa con agricultura.
+
+**25-09-2026 · De un baseline a dos, y se quita el paso humano.** El procedimiento original tenía un
+filtro único derivado del perfil, que una persona podía ampliar (nunca recortar). Al probarlo con un
+perfil de ejemplo salieron **218 códigos**, incluida la división 50 entera (reparación de barcos y de
+ascensores) porque el perfil decía "mantenimiento", y la 35 (equipos de defensa) porque decía
+"seguridad". Un rival así deja pasar tanto que, midiendo a igual volumen, la comparación no
+distinguiría nada; y la regla de "solo añadir" lo empeoraba, porque estaba pensada para un filtro
+demasiado estrecho, que era lo contrario de lo que pasó.
+
+Se sustituye por dos filtros calculados, sin ningún paso a mano, y se publican las dos cifras. Es más
+exigente para el radar: ahora tiene que ganar a los dos.
+
+Hecho antes de tener perfiles y antes de medir nada: en este momento no se sabe todavía qué empresas
+entran en el estudio, así que no hay forma de ajustar esto a un resultado.

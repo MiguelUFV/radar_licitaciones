@@ -38,8 +38,10 @@ BASE = (
     "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/"
     "licitacionesPerfilesContratanteCompleto3_{mes}.zip"
 )
-# El servidor va a unos 0,6 MB/s y un mes pesa 137 MB: hay que darle tiempo.
-ESPERA = 900.0
+# El servidor va a unos 0,6 MB/s y un mes pesa 137 MB, así que la descarga entera son unos
+# 4 minutos. Esto no es el total: es lo que se tolera sin recibir un solo byte. Con 15 minutos
+# una conexión muerta (el portátil se durmió) tardaba una eternidad en darse por vencida.
+ESPERA = 120.0
 
 
 def meses(desde: str, hasta: str) -> list[str]:
