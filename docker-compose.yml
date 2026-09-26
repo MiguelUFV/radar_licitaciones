@@ -62,6 +62,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-radar}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD en .env}
       POSTGRES_DB: ${POSTGRES_DB:-radar}
+      # Sin la sal no se puede escribir la adjudicación de un autónomo, y la ingesta diaria
+      # se para (docs/DATOS.md §7). Falla al arrancar si falta, que es lo que queremos.
+      SAL_PERSONAS: ${SAL_PERSONAS:?falta SAL_PERSONAS en .env}
       TZ: ${GENERIC_TIMEZONE:-Europe/Madrid}
     ports:
       - "127.0.0.1:8000:8000"

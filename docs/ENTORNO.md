@@ -170,3 +170,31 @@ uv run python -m radar.diagnostico         # todo en verde (lo escribe Claude en
 
 Prueba de rotura: comenta `ANTHROPIC_API_KEY` en `.env` y vuelve a lanzar el diagnóstico. Tiene que
 decir en español qué falta, sin traza.
+
+---
+
+## 10. Comandos del día a día
+
+Todos se ejecutan en una terminal, dentro de la carpeta del proyecto.
+
+| Para qué | Comando |
+|---|---|
+| Ver cómo va todo | `uv run python -m radar.estado` |
+| Comprobar que el entorno está bien | `uv run python -m radar.diagnostico` |
+| Mirar licitaciones guardadas | `uv run python -m radar.ver --buscar sanidad` |
+| …solo informática, ya adjudicadas | `uv run python -m radar.ver --informatica --ganadas` |
+| …una en concreto | `uv run python -m radar.ver --expediente M220032` |
+| Descargar lo nuevo del feed | `uv run python -m radar.ingesta --paginas 10` |
+| Bajar pliegos pendientes | `uv run python -m radar.pliegos --limite 20` |
+| Carga histórica (reanudable) | `uv run python -m radar.historico --desde 2025-01 --hasta 2026-08 --ventana 2025-01 2025-06` |
+| Ver los procesos automáticos | Abrir `http://localhost:5679` en el navegador |
+
+Arreglos que solo hacen falta si el diagnóstico los pide:
+
+| Para qué | Comando |
+|---|---|
+| Seudonimizar DNI que quedaran en claro | `uv run python -m radar.personas --anonimizar` |
+| Traducir los códigos del XML (`&quot;`) | `uv run python -m radar.reparar --textos` |
+
+**Si algo se queda colgado:** los procesos largos son reanudables. Se lanzan otra vez con el mismo
+comando y siguen donde estaban, sin volver a descargar lo que ya tienen.

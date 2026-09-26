@@ -169,7 +169,7 @@ def pasa_el_filtro(cpv_licitacion: list[str], prefijos_baseline: list[str]) -> b
     return any(c.startswith(p) for c in cpv_licitacion for p in prefijos_baseline)
 
 
-def congelar(perfil: Path, destino: Path) -> dict:
+def congelar(perfil: Path, destino: Path, empresa: str | None = None) -> dict:
     """Escribe el Baseline B de una empresa, con la huella del perfil y la del vocabulario."""
     if not perfil.exists():
         raise ErrorRadar(f"No se encuentra el perfil {perfil}.")
@@ -183,6 +183,7 @@ def congelar(perfil: Path, destino: Path) -> dict:
         "Generado por `radar/baseline.py` con el procedimiento de `docs/BASELINE.md`.",
         "Una vez congelado no se toca: si cambia, hay que volver a medir.",
         "",
+        f"- Empresa: {empresa or perfil.stem}",
         f"- Perfil del que sale: `{perfil.as_posix()}`",
         f"- Huella del perfil: sha256 `{hashlib.sha256(texto.encode()).hexdigest()[:16]}`",
         f"- Vocabulario CPV: sha256 `{huella_del_vocabulario()[:16]}`",
@@ -204,10 +205,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Filtro CPV de referencia a partir de un perfil")
     parser.add_argument("--perfil", required=True, type=Path)
     parser.add_argument("--destino", type=Path, default=None)
+    parser.add_argument("--empresa", default=None, help="alias de la empresa (Empresa A…)")
     args = parser.parse_args()
     destino = args.destino or Path("docs/baselines") / f"{args.perfil.stem}.md"
     try:
-        resumen = congelar(args.perfil, destino)
+        resumen = congelar(args.perfil, destino, args.empresa)
     except ErrorRadar as e:
         print(f"\n{e}")
         return 1

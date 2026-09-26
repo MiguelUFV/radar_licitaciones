@@ -14,12 +14,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 from radar import baseline
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 from radar.ingesta import abrir_ejecucion, cerrar_ejecucion, commit_actual
+
+# El mismo corte que usa la regla de seleccion (docs/REGLA_SELECCION.md §2).
+CORTE = "2026-09-01"
 
 # La versión más antigua de cada expediente publicado en el periodo: lo que se sabía mientras
 # se podía presentar una oferta.
@@ -38,6 +42,9 @@ SELECT DISTINCT l.entry_id
 FROM adjudicaciones a
 JOIN licitaciones l ON l.id = a.licitacion
 WHERE a.adjudicatario = %s
+  -- Solo cuentan las adjudicaciones registradas antes del corte. Sin esto, cargar un mes
+  -- mas cambiaria el resultado de una medicion ya publicada.
+  AND l.entry_updated < %s
   AND l.entry_id IN (
     SELECT entry_id FROM licitaciones
     GROUP BY entry_id HAVING min(entry_updated) >= %s AND min(entry_updated) < %s
@@ -51,9 +58,9 @@ def universo(conexion, desde: str, hasta: str) -> list[tuple[str, list[str], obj
         return cur.fetchall()
 
 
-def ganados_por(conexion, nif: str, desde: str, hasta: str) -> set[str]:
+def ganados_por(conexion, nif: str, desde: str, hasta: str, corte: str) -> set[str]:
     with conexion.cursor() as cur:
-        cur.execute(GANADOS, (nif, desde, hasta))
+        cur.execute(GANADOS, (nif, corte, desde, hasta))
         return {fila[0] for fila in cur.fetchall()}
 
 
@@ -72,9 +79,17 @@ def dias_del_periodo(publicadas) -> int:
     return max(len(fechas), 1)
 
 
-def medir(desde: str, hasta: str, prefijos_por_variante: dict[str, list[str]]) -> list[dict]:
-    """Calcula M1 (por empresa) y M2 (global) para cada filtro."""
-    comando = f"uv run python -m radar.evaluacion.baselines --desde {desde} --hasta {hasta}"
+def medir(
+    desde: str, hasta: str, filtros: dict[str, dict[str | None, list[str]]], corte: str = CORTE
+) -> list[dict]:
+    """Calcula M1 y M2 de cada filtro.
+
+    `filtros` es, por cada variante, qué prefijos usa cada empresa. La clave `None` significa
+    "el mismo filtro para todas" (el Baseline A son dos divisiones fijas). El Baseline B sale
+    del perfil de cada empresa, así que es distinto para cada una: medirlas todas con la suma
+    de los filtros infla el recall y el volumen de todas.
+    """
+    comando = f"uv run python -m radar.evaluacion.baselines --desde {desde} --hasta {hasta} --corte {corte}"
     resultados = []
     with conectar() as conexion:
         run_id = abrir_ejecucion(conexion, "evaluacion", None)
@@ -92,24 +107,14 @@ def medir(desde: str, hasta: str, prefijos_por_variante: dict[str, list[str]]) -
                 )
             dias = dias_del_periodo(publicadas)
 
-            for variante, prefijos in prefijos_por_variante.items():
-                pasan = filtrar(publicadas, prefijos)
-                resultados.append(
-                    {
-                        "metrica": "M2",
-                        "variante": variante,
-                        "alias": None,
-                        "valor": round(len(pasan) / dias, 4),
-                        "n": len(publicadas),
-                        "detalle": {
-                            "licitaciones_que_pasan": len(pasan),
-                            "dias_con_publicaciones": dias,
-                            "prefijos": prefijos,
-                        },
-                    }
-                )
+            for variante, por_empresa in filtros.items():
+                comun = por_empresa.get(None)
                 for alias, nif, rol in plantilla:
-                    ganados = ganados_por(conexion, nif, desde, hasta)
+                    prefijos = comun if comun is not None else por_empresa.get(alias)
+                    if not prefijos:
+                        continue  # esa empresa todavía no tiene su filtro escrito
+                    pasan = filtrar(publicadas, prefijos)
+                    ganados = ganados_por(conexion, nif, desde, hasta, corte)
                     vistos = ganados & pasan
                     resultados.append(
                         {
@@ -119,6 +124,23 @@ def medir(desde: str, hasta: str, prefijos_por_variante: dict[str, list[str]]) -
                             "valor": round(len(vistos) / len(ganados), 4) if ganados else None,
                             "n": len(ganados),
                             "detalle": {"ganados": len(ganados), "en_la_lista": len(vistos), "rol": rol},
+                        }
+                    )
+                    resultados.append(
+                        {
+                            "metrica": "M2",
+                            # Con un filtro común el volumen es el mismo para todas, pero se
+                            # anota por empresa igualmente: así cada M1 tiene al lado el
+                            # volumen con el que se midió.
+                            "variante": variante,
+                            "alias": alias,
+                            "valor": round(len(pasan) / dias, 4),
+                            "n": len(publicadas),
+                            "detalle": {
+                                "licitaciones_que_pasan": len(pasan),
+                                "dias_con_publicaciones": dias,
+                                "prefijos": prefijos,
+                            },
                         }
                     )
 
@@ -161,29 +183,40 @@ def guardar(conexion, run_id, desde, hasta, comando, resultados) -> None:
     conexion.commit()
 
 
-def prefijos_de_los_baselines(carpeta: Path) -> dict[str, list[str]]:
-    """Baseline A son dos divisiones fijas; el B sale del perfil de cada empresa."""
-    variantes = {"baseline_a": list(baseline.PREFIJOS_OBVIOS)}
-    amplios: set[str] = set()
+def prefijos_de_los_baselines(carpeta: Path) -> dict[str, dict[str | None, list[str]]]:
+    """Baseline A son dos divisiones fijas, iguales para todas; el B es de cada empresa.
+
+    El B se lee de los ficheros congelados en docs/baselines/. Cada uno dice de qué empresa
+    es en su primera línea; sin eso no se puede saber a quién corresponde y se ignora.
+    """
+    filtros: dict[str, dict[str | None, list[str]]] = {"baseline_a": {None: list(baseline.PREFIJOS_OBVIOS)}}
+    por_empresa: dict[str | None, list[str]] = {}
     for fichero in sorted(carpeta.glob("*.md")) if carpeta.exists() else []:
-        for linea in fichero.read_text(encoding="utf-8").splitlines():
-            if linea.startswith("| ") and linea.count("|") >= 3:
-                codigo = linea.split("|")[1].strip()
-                if codigo.isdigit():
-                    amplios.update(baseline.prefijos([codigo]))
-    if amplios:
-        variantes["baseline_b"] = sorted(amplios)
-    return variantes
+        texto = fichero.read_text(encoding="utf-8")
+        alias = re.search(r"^- Empresa:\s*(.+)$", texto, re.M)
+        if not alias:
+            continue
+        codigos = [
+            linea.split("|")[1].strip()
+            for linea in texto.splitlines()
+            if linea.startswith("| ") and linea.count("|") >= 3 and linea.split("|")[1].strip().isdigit()
+        ]
+        if codigos:
+            por_empresa[alias.group(1).strip()] = baseline.prefijos(codigos)
+    if por_empresa:
+        filtros["baseline_b"] = por_empresa
+    return filtros
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="M1 y M2 de los filtros de referencia")
     parser.add_argument("--desde", default="2025-01-01")
     parser.add_argument("--hasta", default="2025-07-01")
+    parser.add_argument("--corte", default=CORTE, help="hasta cuándo cuentan las adjudicaciones")
     parser.add_argument("--baselines", type=Path, default=Path("docs/baselines"))
     args = parser.parse_args()
     try:
-        resultados = medir(args.desde, args.hasta, prefijos_de_los_baselines(args.baselines))
+        resultados = medir(args.desde, args.hasta, prefijos_de_los_baselines(args.baselines), args.corte)
     except ErrorRadar as e:
         print(f"\n{e}")
         return 1
