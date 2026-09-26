@@ -35,6 +35,55 @@ commits y documentación. Términos técnicos sin traducción forzada (feed, com
 7. **Coste controlado.** Toda llamada al LLM pasa por `radar/llm.py`, que registra tokens, coste en
    USD y en EUR, y respeta el presupuesto de `.env`. Prohibido llamar al SDK desde otro sitio.
 
+## Comandos
+```bash
+uv run pytest                                  # todo (los que tocan la base se saltan si no hay Postgres)
+uv run pytest tests/test_feed.py -k solvencia  # un fichero, o un test por su nombre
+uv run ruff format . && uv run ruff check .    # lo mismo que exige la CI
+uv run python -m radar.diagnostico             # entorno: .env, TLS de PLACSP, Postgres, n8n, datos personales
+uv run python -m radar.estado                  # qué hay cargado y qué necesita atención
+```
+Los comandos de carga y de consulta están en `docs/ENTORNO.md` §10; publicar workflows, en §11 (la API
+de n8n está apagada a propósito, D32).
+
+**Base de datos de pruebas.** Los tests con base de datos usan la fixture `bd` de `tests/conftest.py`,
+que crea `radar_test`, aplica las migraciones y vacía las tablas. La base de trabajo (`radar`) nunca
+recibe filas de prueba. Las migraciones son ficheros numerados en `sql/migraciones/` y se aplican con
+`radar.bd.aplicar_migraciones()`, que las anota para no repetirlas.
+
+## Arquitectura
+El dato va siempre en la misma dirección, y cada capa solo conoce la anterior:
+
+```
+feed/zip de PLACSP → capa raw (fichero + sha256) → stg_entradas → núcleo → evaluación
+     radar/red.py      radar/almacen.py         radar/ingesta.py        radar/evaluacion/
+                                                radar/historico.py
+```
+
+- **`radar/red.py`** — única puerta a internet. Solo descarga de los dominios de PLACSP, sigue las
+  redirecciones a mano comprobando el dominio en cada salto y tiene tope de tamaño (D31).
+- **`radar/almacen.py`** — capa raw: el fichero se guarda por su sha256 y no se sobrescribe nunca.
+  La extensión sale de los bytes, no de lo que se esperaba.
+- **`radar/feed.py`** — parser CODICE/Atom con expresiones regulares (sin parser de XML: así no hay
+  entidades externas). Devuelve `Licitacion`, `Lote` y `Baja`. Aquí no se toca la base de datos.
+- **`radar/ingesta.py`** — feed diario → base. Idempotente por `(entry_id, entry_updated)`. El cursor
+  solo avanza si la pasada alcanzó lo ya conocido (D23); las fechas se comparan como instantes (D24).
+- **`radar/historico.py`** — carga hacia atrás desde los zip mensuales, reanudable (D28).
+- **`radar/pliegos.py`** — descarga los PCAP de las candidatas, con reintentos y estado por documento.
+- **`radar/personas.py`** — un adjudicatario persona física se guarda seudonimizado y sin nombre.
+  La restricción está además en la base (`sql/migraciones/007`), no solo en el código.
+- **`radar/api.py`** — frontera con n8n. Los errores previstos se traducen en un solo sitio, un
+  manejador de `ErrorRadar`, y salen como 503 con mensaje en español.
+- **`radar/n8n.py`** — los workflows se definen en código, se publican por la API y se exportan a
+  `n8n/workflows/`. No se editan a mano en el lienzo.
+- **`radar/seleccion.py`, `radar/baseline.py`, `radar/evaluacion/`** — el método del estudio. La regla
+  y el procedimiento se congelan **antes** de aplicarlos (`docs/REGLA_SELECCION.md`, `docs/BASELINE.md`);
+  estos módulos solo los ejecutan y no deciden nada.
+
+**Lo que no se debe romper al tocar esto:** una fila del núcleo siempre se puede remontar a su fichero
+raw (`licitaciones → stg_entradas → raw_ficheros`); repetir cualquier carga no duplica nada; y ningún
+camino muestra una traza al usuario.
+
 ## Reglas técnicas
 - Python 3.12 con `uv`. Formato y lint con `ruff`. Tests con `pytest`.
 - Los tests no llaman a la API de Anthropic ni a la red: usan fixtures reales grabadas.

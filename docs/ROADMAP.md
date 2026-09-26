@@ -3,14 +3,14 @@
 Una sesión son unas 2–3 horas de trabajo con Claude Code. Total estimado: 14–18 sesiones.
 Ninguna fase empieza sin que la anterior cumpla su criterio de salida.
 
-**Fase activa: 3** (la 0, la 1 y la 2 están cerradas; informe de la 1 en `docs/informes/fase1_datos.md`)
+**Fase activa: 4** (0, 1, 2 y 3 cerradas; informes en `docs/informes/`)
 
 | Fase | Objetivo | Sesiones | Puerta de salida |
 |---|---|---|---|
 | 0 | Entorno, cuentas y repositorio | 1 | ✔ Cerrada el 25-09-2026: diagnóstico en verde |
 | 1 | Medir los datos reales (go / no-go) | 1–2 | ✔ Cerrada el 25-09-2026: **GO**, las tres puertas cumplidas |
 | 2 | Ingesta con trazabilidad | 2 | ✔ Cerrada el 25-09-2026: ingesta diaria idempotente desde n8n |
-| 3 | Verdad de referencia y baseline (el "antes") | 1–2 | M1 y M2 del filtro CPV medidos |
+| 3 | Verdad de referencia y baseline (el "antes") | 1–2 | ✔ Cerrada el 27-09-2026: recall del filtro CPV **79,7 %** |
 | 4 | Agente LangGraph v1 | 3 | Grafo completo con desarrollo; modelo de triaje decidido |
 | 5 | Medición (el "después") | 2 | Informe M1–M8 reproducible con un comando |
 | 6 | Romperlo | 1–2 | Matriz de fallos: un test por fila, en verde |
@@ -88,12 +88,12 @@ cualquier fila de `licitaciones` se remonta a su fichero raw (test + consulta en
 - [x] Escribir y commitear la **regla de selección de empresas** ANTES de aplicarla → `docs/REGLA_SELECCION.md`, congelada el 25-09-2026
 - [x] Carga histórica: 20 meses (ene-2025 a ago-2026) desde los zip mensuales (D28). 122.945 expedientes, 218.062 adjudicaciones
 - [x] Aplicar la regla: hecho el 26-09-2026. De 35.129 adjudicatarios, 19 cumplen; sorteadas 2 de desarrollo y 5 de test con semilla 20260925
-- [ ] Perfiles (plantilla en `ejemplos/perfil_plantilla.md`): los escribes tú a partir de la web de cada empresa, sin mirar sus contratos. Se congelan con hash
-- [ ] Cifra de negocio pública de cada empresa, con su fuente (si no hay, M3 no se mide para esa empresa)
+- [x] Perfiles: escritos por el modelo desde fuentes públicas, sin mirar contratos (cambio del 27-09 en la regla). Congelados con hash en `docs/perfiles_congelados.md`
+- [x] Cifra de negocio: cinco en intervalos (se usa el extremo inferior), dos sin localizar y fuera de M3
 - [x] Filtro CPV baseline: **dos** filtros, los dos calculados (D29) → `docs/BASELINE.md` y `radar/baseline.py`
-- [x] Medir M1 y M2 del baseline → `radar/evaluacion/baselines.py`, con sus tests; espera a los perfiles
+- [x] Medir M1 y M2 del baseline → hecho: 79,7 % (A) y 87,3 % (B). Informe en `docs/informes/fase3_baseline.md`
 
-**Puerta:** baseline medido; perfiles y reglas congelados en git antes de escribir una línea del agente.
+**Puerta (cumplida el 27-09-2026):** baseline medido; regla, procedimiento y perfiles congelados en git antes de escribir una línea del agente, y el orden de los commits lo demuestra.
 
 ## Fase 4 — Agente LangGraph v1
 

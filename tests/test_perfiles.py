@@ -1,0 +1,128 @@
+"""Congelado de los perfiles: lo que impide cambiarlos despues de medir."""
+
+import pytest
+
+from radar import perfiles
+from radar.errores import ErrorRadar
+
+PERFIL = """# Perfil de Empresa A
+
+## 1. Qué hace la empresa
+
+Desarrolla software a medida.
+
+## 2. Servicios que ofrece
+
+- Desarrollo de aplicaciones
+
+## Fuentes
+
+- https://ejemplo.es/quienes-somos (consultada el 27-09-2026)
+- https://ejemplo.es/servicios (27-09-2026)
+
+## Firma del perfil
+
+| Escrito el | 27-09-2026 |
+"""
+
+
+def sembrar_empresa(bd, alias="Empresa A", nif="B00000001") -> None:
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute(
+            "INSERT INTO perfiles (alias, nif, rol, adjudicaciones, de_informatica, semilla,"
+            " regla_sha256) VALUES (%s, %s, 'desarrollo', 10, 9, '1', repeat('c', 64))",
+            (alias, nif),
+        )
+        conexion.commit()
+
+
+def test_el_alias_sale_del_nombre_del_fichero(tmp_path):
+    assert perfiles.alias_del_fichero(tmp_path / "perfil_empresa_a.md") == "Empresa A"
+    assert perfiles.alias_del_fichero(tmp_path / "perfil_empresa_g.md") == "Empresa G"
+
+
+def test_un_fichero_mal_nombrado_se_avisa_sin_traza(tmp_path):
+    with pytest.raises(ErrorRadar) as fallo:
+        perfiles.alias_del_fichero(tmp_path / "abaco.md")
+    assert "no se llama como debe" in str(fallo.value)
+    assert "Traceback" not in str(fallo.value)
+
+
+def test_las_fuentes_se_extraen_para_poder_auditar():
+    fuentes = perfiles.fuentes_de(PERFIL)
+    assert fuentes.count("\n") == 1
+    assert "quienes-somos" in fuentes
+
+
+def test_un_perfil_sin_fuentes_no_se_acepta():
+    sin_fuentes = PERFIL.replace("## Fuentes", "## Otra cosa")
+    with pytest.raises(ErrorRadar) as fallo:
+        perfiles.fuentes_de(sin_fuentes)
+    assert "Fuentes" in str(fallo.value)
+
+
+def test_congela_el_perfil_con_su_huella(bd, tmp_path):
+    sembrar_empresa(bd)
+    (tmp_path / "perfil_empresa_a.md").write_text(PERFIL, encoding="utf-8")
+
+    resumen = perfiles.congelar(tmp_path)
+    assert resumen["congelados"] == 1
+
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT texto_sha256, congelado_en, fuentes FROM perfiles WHERE alias = 'Empresa A'")
+        huella, cuando, fuentes = cur.fetchone()
+    assert len(huella) == 64
+    assert cuando is not None
+    assert "ejemplo.es" in fuentes
+
+
+def test_volver_a_congelar_lo_mismo_no_cambia_nada(bd, tmp_path):
+    sembrar_empresa(bd)
+    (tmp_path / "perfil_empresa_a.md").write_text(PERFIL, encoding="utf-8")
+    perfiles.congelar(tmp_path)
+
+    segunda = perfiles.congelar(tmp_path)
+    assert segunda["congelados"] == 0
+    assert segunda["ya_estaban"] == 1
+
+
+def test_si_el_perfil_cambia_despues_de_congelarse_se_para(bd, tmp_path):
+    # Es el control que da valor a la medicion: si el perfil se puede retocar despues, la cifra
+    # publicada no significa nada.
+    sembrar_empresa(bd)
+    fichero = tmp_path / "perfil_empresa_a.md"
+    fichero.write_text(PERFIL, encoding="utf-8")
+    perfiles.congelar(tmp_path)
+
+    fichero.write_text(
+        PERFIL.replace("software a medida", "software a medida y ciberseguridad"), encoding="utf-8"
+    )
+    with pytest.raises(ErrorRadar) as fallo:
+        perfiles.congelar(tmp_path)
+    assert "ha cambiado" in str(fallo.value)
+    assert "volver a medir" in str(fallo.value)
+
+    # Y con --rehacer sí, porque a veces hay que corregir algo y entonces se vuelve a medir.
+    assert perfiles.congelar(tmp_path, rehacer=True)["congelados"] == 1
+
+
+def test_una_empresa_sin_sortear_no_se_puede_congelar(bd, tmp_path):
+    (tmp_path / "perfil_empresa_a.md").write_text(PERFIL, encoding="utf-8")
+    with pytest.raises(ErrorRadar) as fallo:
+        perfiles.congelar(tmp_path)
+    assert "aplicar la regla" in str(fallo.value)
+
+
+def test_el_registro_versionado_no_lleva_nombres_ni_direcciones(bd, tmp_path):
+    sembrar_empresa(bd)
+    (tmp_path / "perfil_empresa_a.md").write_text(PERFIL, encoding="utf-8")
+    perfiles.congelar(tmp_path)
+
+    destino = tmp_path / "registro.md"
+    with bd() as conexion:
+        perfiles.escribir_registro(conexion, destino)
+    texto = destino.read_text(encoding="utf-8")
+    assert "Empresa A" in texto
+    assert "B00000001" not in texto  # el NIF no sale
+    assert "ejemplo.es" not in texto  # las direcciones tampoco
+    assert "desarrollo" in texto

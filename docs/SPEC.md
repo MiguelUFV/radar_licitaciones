@@ -168,6 +168,15 @@ flowchart TD
   con requisitos; cuando la marca no se distingue, el requisito va a "revisar", nunca se supone.
 - **Perfil declarativo:** el radar sabe de la empresa lo que dice su perfil. Si el perfil está mal,
   la decisión también.
+- **Los perfiles los escribió el modelo, no una persona** (cambio del 27-09-2026 en
+  `docs/REGLA_SELECCION.md`). Salen solo de fuentes públicas sobre cada empresa y sin consultar ni un
+  contrato, pero quedan más ordenados que el perfil que escribiría un cliente real, y eso **favorece
+  al radar**. Es el sesgo más importante del estudio y se repite en el informe. Dos de los siete se
+  apoyan en fuentes de segunda mano porque la web de la empresa bloquea el acceso automatizado.
+- **Cifras de negocio en intervalos:** ninguna de las siete publica su facturación exacta; los
+  directorios dan intervalos (uno de ellos, de 6 a 30 millones). Se usa siempre el extremo inferior,
+  que exige menos solvencia y por tanto descarta menos licitaciones: es la lectura conservadora para
+  M3. Dos empresas no tienen cifra localizable y quedan fuera de M3.
 - **Tiempo (M7):** un único revisor. Es una medición real, pero no generalizable.
 - **No evalúa la probabilidad de ganar** ni los criterios de adjudicación.
 - **Ejecución local:** si el PC está apagado, no hay correo ese día (se recupera al siguiente).

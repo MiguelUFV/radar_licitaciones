@@ -113,3 +113,25 @@ adjudicaciones con NIE.
 Ahora se comprueba contra las letras que la Agencia Tributaria usa para personas jurídicas
 (`ABCDEFGHJNPQRSUVW`, en `radar/personas.py`). No cambia la intención del criterio: la concreta para
 que haga lo que decía. Hecho antes de aplicar la regla: no hay ninguna empresa seleccionada todavía.
+
+**27-09-2026 · Los perfiles los escribe el modelo, no Miguel.** El apartado 6 decía que los escribía
+Miguel. No se ha hecho así: dijo que no sabía cómo hacerlo y que no tenía tiempo, y con siete empresas
+la alternativa era que el proyecto se quedara parado aquí.
+
+**Lo que se pierde.** El perfil escrito por una persona se parece al que tendría un cliente real:
+desordenado, con lagunas, con las palabras de quien lo escribe. Escrito por el modelo sale más
+ordenado y más fácil de aprovechar por una máquina, y eso **juega a favor del radar**. Es un sesgo en
+la dirección favorable, va a los límites del SPEC y se dice en el informe.
+
+**Lo que se mantiene, que es lo que da valor a la medición.** El perfil sale **solo de fuentes públicas
+sobre la empresa** (su web y directorios de empresas), y **no se ha consultado ni un contrato**. Cada
+perfil lleva la lista de direcciones consultadas con su fecha, así que cualquiera puede comprobar de
+dónde salió cada frase.
+
+**Controles añadidos:**
+- Antes de escribir nada se comprobó que el NIF de cada web coincide con el de la base, para no
+  perfilar a la empresa equivocada. Los siete coinciden.
+- Cada perfil queda congelado con su sha256 en `docs/perfiles_congelados.md`. Si alguien lo retoca
+  después, el comando se para y obliga a volver a medir.
+- Dos perfiles se apoyan más en fuentes de segunda mano porque su web bloquea el acceso automatizado.
+  Queda anotado en el propio perfil y en el informe: son los dos más débiles.
