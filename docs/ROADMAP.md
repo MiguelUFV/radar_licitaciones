@@ -86,8 +86,8 @@ cualquier fila de `licitaciones` se remonta a su fichero raw (test + consulta en
 ## Fase 3 — Verdad de referencia y baseline (el "antes")
 
 - [x] Escribir y commitear la **regla de selección de empresas** ANTES de aplicarla → `docs/REGLA_SELECCION.md`, congelada el 25-09-2026
-- [~] Carga histórica: desde los zip mensuales de la Plataforma (D28), no paginando el feed. En curso
-- [ ] Aplicar la regla: 2 empresas de **desarrollo** y 3–5 de **test** (`radar/seleccion.py`, listo; espera a la carga)
+- [x] Carga histórica: 20 meses (ene-2025 a ago-2026) desde los zip mensuales (D28). 122.945 expedientes, 218.062 adjudicaciones
+- [x] Aplicar la regla: hecho el 26-09-2026. De 35.129 adjudicatarios, 19 cumplen; sorteadas 2 de desarrollo y 5 de test con semilla 20260925
 - [ ] Perfiles (plantilla en `ejemplos/perfil_plantilla.md`): los escribes tú a partir de la web de cada empresa, sin mirar sus contratos. Se congelan con hash
 - [ ] Cifra de negocio pública de cada empresa, con su fuente (si no hay, M3 no se mide para esa empresa)
 - [x] Filtro CPV baseline: **dos** filtros, los dos calculados (D29) → `docs/BASELINE.md` y `radar/baseline.py`
