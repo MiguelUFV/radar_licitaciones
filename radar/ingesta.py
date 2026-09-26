@@ -17,7 +17,7 @@ import subprocess
 import uuid
 from datetime import UTC, datetime
 
-from radar import almacen, feed
+from radar import almacen, feed, personas
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 from radar.red import crear_cliente, descargar
@@ -157,13 +157,15 @@ def guardar_licitacion(conexion, stg_id: int, lic: feed.Licitacion) -> int | Non
                 )
 
         if lic.adjudicatario_nif:
+            # De un autónomo no se guarda ni el DNI ni el nombre (docs/DATOS.md §7).
+            adjudicatario, nombre = personas.como_se_guarda(lic.adjudicatario_nif, lic.adjudicatario_nombre)
             cur.execute(
                 "INSERT INTO adjudicaciones (licitacion, adjudicatario, nombre, es_pyme)"
                 " VALUES (%s, %s, %s, %s)",
                 (
                     licitacion_id,
-                    lic.adjudicatario_nif,
-                    lic.adjudicatario_nombre,
+                    adjudicatario,
+                    nombre,
                     _bandera(lic.adjudicatario_pyme),
                 ),
             )

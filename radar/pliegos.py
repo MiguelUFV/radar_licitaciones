@@ -54,7 +54,15 @@ def pendientes(conexion, limite: int, tipo: str, solo_informatica: bool) -> list
         return cur.fetchall()
 
 
+# Lo único que esta función puede tocar. El nombre de la columna va dentro del SQL, así que
+# no puede salir de ningún sitio que no sea esta lista.
+COLUMNAS = {"estado_descarga", "raw_fichero", "paginas", "con_capa_texto", "motivo_error"}
+
+
 def anotar_intento(conexion, documento_id: int, **campos) -> None:
+    desconocidas = set(campos) - COLUMNAS
+    if desconocidas:
+        raise ValueError(f"Columnas no permitidas en documentos: {sorted(desconocidas)}")
     asignaciones = ", ".join(f"{nombre} = %s" for nombre in campos)
     with conexion.cursor() as cur:
         cur.execute(

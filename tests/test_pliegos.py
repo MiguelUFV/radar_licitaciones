@@ -156,3 +156,11 @@ def test_el_pliego_ya_bajado_no_se_vuelve_a_pedir(bd, almacen_temporal, monkeypa
     resumen = pliegos.descargar_pendientes(limite=5)
     assert resumen["desde_disco"] == 1
     assert resumen["descargados"] == 1
+
+
+def test_no_se_puede_colar_una_columna_en_el_update():
+    # El nombre de la columna va dentro del SQL, no como parametro: la unica defensa es que
+    # no pueda venir de ningun sitio que no sea la lista.
+    with pytest.raises(ValueError) as fallo:
+        pliegos.anotar_intento(None, 1, **{"estado_descarga = 'x', paginas": 1})
+    assert "no permitidas" in str(fallo.value)

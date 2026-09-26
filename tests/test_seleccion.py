@@ -156,3 +156,19 @@ def test_si_no_salen_suficientes_empresas_lo_dice(bd):
     with pytest.raises(ErrorRadar) as fallo:
         seleccion.aplicar("2025-01-01", "2025-07-01", "2026-09-01")
     assert "Amplía el periodo" in str(fallo.value)
+
+
+def test_un_autonomo_con_nie_no_entra_como_empresa():
+    # X, Y y Z son NIE: empiezan por letra, pero son personas. Mirar solo "es una letra"
+    # los colaba en el estudio como si fueran sociedades.
+    for nie in ("X1234567L", "Y1234567X", "Z1234567R"):
+        assert seleccion.motivo_de_descarte(candidata(nif=nie)) == "no es persona juridica"
+
+
+def test_una_persona_ya_seudonimizada_tampoco_entra():
+    assert seleccion.motivo_de_descarte(candidata(nif="pf_a1b2c3")) == "no es persona juridica"
+
+
+def test_las_letras_de_sociedad_si_entran():
+    for letra in "ABCDEFGHJNPQRSVW":  # la U es UTE y se descarta aparte
+        assert seleccion.motivo_de_descarte(candidata(nif=f"{letra}12345678")) is None

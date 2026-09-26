@@ -16,6 +16,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from radar import personas
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 from radar.ingesta import abrir_ejecucion, cerrar_ejecucion
@@ -73,7 +74,7 @@ class Candidata:
 
 def motivo_de_descarte(c: Candidata) -> str | None:
     """Devuelve el criterio que no cumple, o None si entra en el sorteo (regla §3)."""
-    if not c.nif or not c.nif[0].isalpha():
+    if not c.nif or personas.es_persona_fisica(c.nif):
         return "no es persona juridica"
     if c.nif[0].upper() == "U" or (c.nombre and UTE.search(c.nombre)):
         return "es UTE"

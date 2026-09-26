@@ -103,3 +103,13 @@ Los NIF y los nombres se quedan en la base de datos local, que no se publica.
 ## Cambios
 
 _Ninguno. Si algún día hay uno, va aquí con su fecha y su motivo._
+
+**26-09-2026 · "Persona jurídica" se comprueba por la letra del NIF, no por "empieza por letra".**
+El criterio 1 decía "empieza por letra (NIF de sociedad)". Al auditar los datos se vio el agujero: un
+**NIE** (el identificador de un extranjero, que es una persona física) empieza por X, Y o Z, así que
+pasaba el criterio y podía entrar en el estudio como si fuera una empresa. En la carga había 129
+adjudicaciones con NIE.
+
+Ahora se comprueba contra las letras que la Agencia Tributaria usa para personas jurídicas
+(`ABCDEFGHJNPQRSUVW`, en `radar/personas.py`). No cambia la intención del criterio: la concreta para
+que haga lo que decía. Hecho antes de aplicar la regla: no hay ninguna empresa seleccionada todavía.

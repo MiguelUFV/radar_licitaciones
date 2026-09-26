@@ -36,6 +36,7 @@ def comprobar_env() -> list[tuple[bool, str, bool]]:
     for variable, critica, para_que in [
         ("POSTGRES_PASSWORD", True, "la base de datos"),
         ("N8N_ENCRYPTION_KEY", True, "n8n"),
+        ("SAL_PERSONAS", True, "no guardar en claro el DNI de los adjudicatarios autónomos"),
         ("ANTHROPIC_API_KEY", False, "el modelo (hace falta a partir de la Fase 4)"),
     ]:
         valor = os.getenv(variable)
@@ -81,6 +82,49 @@ def comprobar_n8n() -> tuple[bool, str]:
         return False, "n8n del proyecto no responde. Arráncalo con: docker compose up -d"
 
 
+def comprobar_datos_personales() -> tuple[bool, str]:
+    """Ningún DNI ni NIE de adjudicatario puede estar guardado en claro (docs/DATOS.md §7)."""
+    try:
+        from radar.bd import conectar
+
+        with conectar() as conexion, conexion.cursor() as cur:
+            cur.execute(
+                "SELECT count(*) FROM adjudicaciones"
+                " WHERE adjudicatario IS NOT NULL AND left(adjudicatario, 1) !~ '[ABCDEFGHJNPQRSUVW]'"
+                " AND adjudicatario NOT LIKE 'pf%'"
+            )
+            en_claro = cur.fetchone()[0]
+    except ErrorRadar as e:
+        return False, e.mensaje
+    if en_claro:
+        return False, (
+            f"Hay {en_claro} adjudicaciones con el DNI de una persona guardado en claro. "
+            "Arréglalo con: uv run python -m radar.personas --anonimizar"
+        )
+    return True, "Ningún dato personal guardado en claro"
+
+
+def comprobar_ejecuciones_abiertas() -> tuple[bool, str]:
+    """Una ejecución que lleva horas 'en_curso' es una que se murió sin cerrarse."""
+    try:
+        from radar.bd import conectar
+
+        with conectar() as conexion, conexion.cursor() as cur:
+            cur.execute(
+                "SELECT count(*) FROM ejecuciones"
+                " WHERE estado = 'en_curso' AND inicio < now() - interval '2 hours'"
+            )
+            colgadas = cur.fetchone()[0]
+    except ErrorRadar as e:
+        return False, e.mensaje
+    if colgadas:
+        return False, (
+            f"Hay {colgadas} ejecución(es) empezadas hace más de dos horas y sin terminar. "
+            "Seguramente se cortaron: revisa la tabla ejecuciones."
+        )
+    return True, "Ninguna ejecución colgada"
+
+
 def main() -> int:
     print("Diagnóstico del entorno\n")
     problemas = 0
@@ -98,6 +142,8 @@ def main() -> int:
         comprobar_plataforma,
         lambda: comprobar_puerto("127.0.0.1", 5432, "PostgreSQL", "Arráncalo con: docker compose up -d"),
         comprobar_n8n,
+        comprobar_datos_personales,
+        comprobar_ejecuciones_abiertas,
     ):
         correcto, mensaje = comprobacion()
         print(f"{OK if correcto else FALLO} {mensaje}")
