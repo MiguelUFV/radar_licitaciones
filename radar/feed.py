@@ -6,6 +6,7 @@ concretas, en docs/DATOS.md §2.
 
 from __future__ import annotations
 
+import html
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -26,7 +27,9 @@ def _uno(bloque: str, etiqueta: str) -> str | None:
     # (cbc-place-ext:ContractFolderStatusCode), así que \w no basta; y la etiqueta tiene que
     # terminar ahí, o "ID" acabaría casando con <cbc:IdentificationCode>.
     m = re.search(rf"<(?:[\w-]+:)?{etiqueta}(?=[\s/>])[^>]*>\s*([^<]+?)\s*<", bloque)
-    return m.group(1) if m else None
+    # El XML escribe las comillas como &quot; y el & como &amp;. Si no se deshace aquí, eso
+    # acaba en el correo, en la ficha y en lo que lee el modelo.
+    return html.unescape(m.group(1)) if m else None
 
 
 def _dentro(bloque: str, contenedor: str) -> str | None:
@@ -137,7 +140,7 @@ def parsear_entrada(bloque: str) -> Licitacion:
     cualificacion = _dentro(bloque, "TendererQualificationRequest")
     solvencia = None
     if cualificacion:
-        solvencia = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", cualificacion)).strip() or None
+        solvencia = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html.unescape(cualificacion))).strip() or None
 
     ganador = _dentro(bloque, "WinningParty")
     documento = lambda etiqueta: (  # noqa: E731

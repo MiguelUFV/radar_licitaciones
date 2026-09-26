@@ -116,3 +116,16 @@ def test_ordena_las_fechas_aunque_cambie_el_huso():
 def test_lee_el_nombre_del_adjudicatario(licitacion):
     # La regla de seleccion descarta las UTE por el nombre, asi que sin nombre no se puede aplicar.
     assert licitacion.adjudicatario_nombre.startswith("ASISA")
+
+
+def test_los_textos_no_conservan_los_codigos_del_xml():
+    # El XML escribe las comillas como &quot; y el & como &amp;. Guardados asi acaban en el
+    # correo y en la ficha, y el modelo los recibe como ruido.
+    bloque = FIXTURE.read_text(encoding="utf-8").replace(
+        "<title>", '<title>Sistema &quot;Ebiblio&quot; de KOENIG &amp; BAUER &#40;lote 2&#41; ', 1
+    )
+    licitacion = feed.parsear_entrada(bloque)
+    assert '"Ebiblio"' in licitacion.objeto
+    assert "KOENIG & BAUER" in licitacion.objeto
+    assert "(lote 2)" in licitacion.objeto
+    assert "&" not in licitacion.objeto.replace("KOENIG & BAUER", "")
