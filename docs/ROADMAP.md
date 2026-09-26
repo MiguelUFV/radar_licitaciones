@@ -85,13 +85,13 @@ cualquier fila de `licitaciones` se remonta a su fichero raw (test + consulta en
 
 ## Fase 3 — Verdad de referencia y baseline (el "antes")
 
-- [ ] Escribir y commitear la **regla de selección de empresas** ANTES de aplicarla. Propuesta: pymes (bandera PYME del feed), sin UTE, con ≥ 8 adjudicaciones en el periodo, mayoría en CPV 72/48
-- [ ] Carga histórica: licitaciones publicadas de 2025-01 a 2025-06, con sus adjudicaciones hasta 2026-08
-- [ ] Aplicar la regla: 2 empresas de **desarrollo** y 3–5 de **test** (sorteo con semilla fija, commiteado)
+- [x] Escribir y commitear la **regla de selección de empresas** ANTES de aplicarla → `docs/REGLA_SELECCION.md`, congelada el 25-09-2026
+- [~] Carga histórica: desde los zip mensuales de la Plataforma (D28), no paginando el feed. En curso
+- [ ] Aplicar la regla: 2 empresas de **desarrollo** y 3–5 de **test** (`radar/seleccion.py`, listo; espera a la carga)
 - [ ] Perfiles (plantilla en `ejemplos/perfil_plantilla.md`): los escribes tú a partir de la web de cada empresa, sin mirar sus contratos. Se congelan con hash
 - [ ] Cifra de negocio pública de cada empresa, con su fuente (si no hay, M3 no se mide para esa empresa)
-- [ ] Filtro CPV baseline: códigos CPV y palabras clave derivados del perfil con un procedimiento escrito, congelado
-- [ ] Medir M1 y M2 del baseline en las empresas de desarrollo
+- [x] Filtro CPV baseline: **dos** filtros, los dos calculados (D29) → `docs/BASELINE.md` y `radar/baseline.py`
+- [x] Medir M1 y M2 del baseline → `radar/evaluacion/baselines.py`, con sus tests; espera a los perfiles
 
 **Puerta:** baseline medido; perfiles y reglas congelados en git antes de escribir una línea del agente.
 
