@@ -198,3 +198,27 @@ Arreglos que solo hacen falta si el diagnóstico los pide:
 
 **Si algo se queda colgado:** los procesos largos son reanudables. Se lanzan otra vez con el mismo
 comando y siguen donde estaban, sin volver a descargar lo que ya tienen.
+
+---
+
+## 11. Publicar un workflow de n8n
+
+La API de n8n está **apagada a propósito** (decisión D32): así su clave no abre nada aunque se
+filtre. Los procesos programados funcionan igual; lo único que no se puede hacer con la API apagada
+es crear o modificar workflows desde código.
+
+Cuando haya que publicar uno:
+
+1. En `.env`, cambia `N8N_PUBLIC_API_DISABLED=true` por `false`.
+2. `docker compose up -d n8n` (tarda unos 15 segundos en arrancar).
+3. `uv run python -m radar.n8n --publicar`
+4. Vuelve a poner `N8N_PUBLIC_API_DISABLED=true` y repite el paso 2.
+
+Si te olvidas del paso 1, el comando te imprime estos mismos pasos.
+
+**Comprobación de que está bien apagada:** con la API apagada, esto responde `401` tanto con la clave
+como sin ella.
+
+```
+curl -i http://127.0.0.1:5679/api/v1/workflows
+```

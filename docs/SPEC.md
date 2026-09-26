@@ -184,6 +184,12 @@ flowchart TD
   aceptable en un portátil de una persona. **Si algún día se despliega en un servidor, hace falta
   autenticación antes de abrir el puerto** (revisado el 26-09-2026: los tres puertos —5432, 5679 y
   8000— solo escuchan en local).
+- **Solo se descarga de la Plataforma.** Las URL de los documentos vienen del feed, donde publica
+  cualquier organismo, así que se comprueba el dominio antes de pedir nada y en cada redirección
+  (decisión D31). Si algún día la Plataforma sirviera documentos desde otro dominio, habría que
+  añadirlo a mano: el radar preferirá no descargar antes que descargar de donde no debe.
+- **La clave de la API de n8n está filtrada y no se va a rotar.** La API se queda apagada, y así la
+  clave no abre nada (decisión D32). Es una mitigación, no un arreglo: lo correcto sería rotarla.
 - **Autónomos:** un adjudicatario que es persona física se guarda seudonimizado y sin nombre
   (`docs/DATOS.md` §7). Eso significa que el estudio **no puede elegir autónomos** como empresas, ni
   medir nada sobre ellos. Es deliberado: son datos personales.

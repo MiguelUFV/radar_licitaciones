@@ -17,5 +17,9 @@ COPY radar/ ./radar/
 COPY sql/ ./sql/
 RUN uv sync --frozen --no-dev
 
+# El servicio no necesita ser root para nada: solo lee su código y escribe en /app/data.
+RUN useradd --create-home --uid 10001 radar && chown -R radar:radar /app
+USER radar
+
 EXPOSE 8000
 CMD ["uv", "run", "uvicorn", "radar.api:app", "--host", "0.0.0.0", "--port", "8000"]

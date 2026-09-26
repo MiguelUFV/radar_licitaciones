@@ -122,7 +122,7 @@ def test_los_textos_no_conservan_los_codigos_del_xml():
     # El XML escribe las comillas como &quot; y el & como &amp;. Guardados asi acaban en el
     # correo y en la ficha, y el modelo los recibe como ruido.
     bloque = FIXTURE.read_text(encoding="utf-8").replace(
-        "<title>", '<title>Sistema &quot;Ebiblio&quot; de KOENIG &amp; BAUER &#40;lote 2&#41; ', 1
+        "<title>", "<title>Sistema &quot;Ebiblio&quot; de KOENIG &amp; BAUER &#40;lote 2&#41; ", 1
     )
     licitacion = feed.parsear_entrada(bloque)
     assert '"Ebiblio"' in licitacion.objeto

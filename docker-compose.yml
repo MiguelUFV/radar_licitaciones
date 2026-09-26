@@ -45,6 +45,10 @@ services:
       WEBHOOK_URL: http://localhost:5679/
       N8N_RUNNERS_ENABLED: "true"
       N8N_DIAGNOSTICS_ENABLED: "false"
+      # La API de n8n está apagada salvo cuando hay que publicar un workflow (D32). Mientras
+      # está apagada, la clave de API no abre nada: es la única forma de quitarle valor a una
+      # clave que no se va a rotar. Los procesos programados siguen funcionando igual.
+      N8N_PUBLIC_API_DISABLED: ${N8N_PUBLIC_API_DISABLED:-true}
     ports:
       - "127.0.0.1:5679:5678"
     volumes:
@@ -54,6 +58,12 @@ services:
     build: .
     container_name: radar_agente
     restart: unless-stopped
+    # Corre como usuario normal (ver Dockerfile) y sin poder ganar privilegios ni usar
+    # capacidades del núcleo: no le hacen falta para leer un feed y escribir en la base.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       postgres:
         condition: service_healthy

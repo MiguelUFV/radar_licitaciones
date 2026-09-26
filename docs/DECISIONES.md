@@ -218,3 +218,30 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
 - **Decisión:** M1 y M2 se calculan sobre la **versión más antigua** de cada expediente.
 - **Comprobado con un test de control negativo:** midiendo con la última versión, el filtro se apunta
   un contrato que se publicó como obra y solo apareció como informática al adjudicarse.
+
+## D31 · Solo se descarga de los dominios de la Plataforma, y con tope de tamaño
+- **Hallazgo del 26-09-2026**, auditando seguridad: las URL de los documentos salen del feed, y en
+  el feed publica cualquier organismo. El radar pedía esa URL tal cual y seguía redirecciones a
+  ciegas. Un anuncio manipulado podía hacer que pidiera direcciones de la red interna del ordenador
+  que lo ejecuta (`http://127.0.0.1:8000/…`, el router, un servicio de metadatos). Comprobado con un
+  test: antes del arreglo, la petición a `127.0.0.1` se hacía.
+- **Decisión:** solo se descarga de `contrataciondelestado.es` y `contrataciondelsectorpublico.gob.es`
+  (o subdominios). Las redirecciones se siguen **a mano**, comprobando el dominio en cada salto, con
+  un máximo de cinco: una redirección a `127.0.0.1` no se puede pedir "y luego mirar".
+- **Tope de tamaño:** 400 MB por defecto (los zip mensuales pesan unos 200) y 60 MB para un
+  documento. Sin tope, un fichero enorme llenaba la memoria del proceso antes de poder mirar qué era.
+- **Verificado** después del cambio con descargas reales: dos pliegos y una página del feed de 9,9 MB.
+
+## D32 · La API de n8n se queda apagada salvo para publicar un workflow
+- **El problema:** la clave de la API se pegó en un chat el 25-09-2026 y no se va a rotar. Una clave
+  filtrada no se puede "desfiltrar": lo único que se puede hacer es quitarle valor.
+- **Decisión:** `N8N_PUBLIC_API_DISABLED=true` por defecto. Con la API apagada, n8n responde 401
+  **tanto si mandas la clave como si no**, así que la clave no abre nada. Para publicar un workflow
+  se enciende un momento y se vuelve a apagar (los pasos salen impresos si lo intentas con la API
+  apagada, y están en `docs/ENTORNO.md` §11).
+- **Lo que no cambia:** los procesos programados siguen funcionando igual, porque los dispara n8n por
+  dentro. Verificado: los dos workflows siguen activos con la API apagada.
+- **Riesgo que queda:** la clave sigue siendo válida y sigue existiendo en el registro de la
+  conversación, que no está en esta máquina. Se ha borrado de la transcripción local (17 trozos). Si
+  algún día se enciende la API y se deja encendida, el riesgo vuelve.
+- **Lo correcto sigue siendo rotarla.** Esto es lo segundo mejor.

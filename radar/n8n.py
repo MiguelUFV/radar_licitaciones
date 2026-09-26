@@ -20,6 +20,14 @@ from radar.errores import FaltaConfiguracion
 
 CARPETA = Path("n8n/workflows")
 CREDENCIAL = CARPETA / "credencial_postgres.json"
+API_APAGADA = (
+    "La API de n8n está apagada a propósito, para que su clave no sirva de nada si se filtra "
+    "(docs/DECISIONES.md D32). Para publicar un workflow, enciéndela un momento:\n"
+    "  1. En .env, pon N8N_PUBLIC_API_DISABLED=false\n"
+    "  2. docker compose up -d n8n\n"
+    "  3. uv run python -m radar.n8n --publicar\n"
+    "  4. Vuelve a poner N8N_PUBLIC_API_DISABLED=true y repite el paso 2"
+)
 # Dentro de la red de Docker, el servicio se llama por su nombre; no hace falta salir al host.
 URL_AGENTE = "http://agente:8000"
 
@@ -205,8 +213,21 @@ def workflow_diario(errores_id: str | None = None) -> dict:
     }
 
 
+def comprobar_api(api: httpx.Client) -> None:
+    """Distingue "la API está apagada" de "la clave no vale", que dan el mismo código.
+
+    Con la API apagada, n8n responde 401 tanto si mandas la clave como si no: ahí está la
+    prueba de que, apagada, la clave no abre nada.
+    """
+    respuesta = api.get("/workflows")
+    if respuesta.status_code in (401, 404):
+        raise FaltaConfiguracion(API_APAGADA)
+    respuesta.raise_for_status()
+
+
 def publicar(definicion: dict, activar: bool = True) -> dict:
     with cliente() as api:
+        comprobar_api(api)
         existentes = api.get("/workflows").json().get("data", [])
         anterior = next((w for w in existentes if w["name"] == definicion["name"]), None)
         if anterior:

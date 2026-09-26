@@ -20,7 +20,7 @@ from radar import almacen, documentos
 from radar.bd import conectar
 from radar.errores import DocumentoIlegible, ErrorRadar, FuenteNoResponde
 from radar.ingesta import abrir_ejecucion, cerrar_ejecucion, guardar_fichero_raw
-from radar.red import crear_cliente, descargar
+from radar.red import MAXIMO_DOCUMENTO, crear_cliente, descargar
 
 MANIFIESTO = "pliegos"
 INTENTOS_MAXIMOS = 3
@@ -103,7 +103,7 @@ def descargar_pendientes(
                         resumen["desde_disco"] += 1
                     else:
                         try:
-                            contenido = descargar(url, cliente)
+                            contenido = descargar(url, cliente, maximo=MAXIMO_DOCUMENTO)
                         except FuenteNoResponde as e:
                             seguidos += 1
                             resumen["errores"] += 1
