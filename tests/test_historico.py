@@ -173,3 +173,20 @@ def test_el_mes_anota_lo_que_hay_en_la_base_no_lo_que_inserto_esta_pasada(bd, al
     with bd() as conexion, conexion.cursor() as cur:
         cur.execute("SELECT entradas, licitaciones FROM historico_meses WHERE mes = '2025-01'")
         assert cur.fetchone() == (1, 1)
+
+
+def test_no_se_abre_un_fichero_que_se_hincha_al_descomprimirse(bd, almacen_temporal, monkeypatch):
+    # Un zip pequeno cuyo contenido ocupa cientos de megas al abrirlo. Se para antes de
+    # leerlo, no despues de quedarse sin memoria.
+    monkeypatch.setattr(historico, "MAXIMO_POR_FICHERO", 1024)
+    relleno = pagina([entrada("https://ejemplo.es/1", "2025-01-05T10:00:00.000+01:00")]) + b" " * 5000
+    preparar(monkeypatch, zip_de_prueba({"p1.atom": relleno}))
+
+    with pytest.raises(ErrorRadar) as fallo:
+        historico.cargar("2025-01", "2025-01")
+    assert "al descomprimirse" in str(fallo.value)
+    assert "Traceback" not in str(fallo.value)
+
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT count(*) FROM licitaciones")
+        assert cur.fetchone()[0] == 0

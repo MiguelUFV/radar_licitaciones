@@ -179,6 +179,17 @@ flowchart TD
   marcados como ilegibles con su motivo, y no se reintentan. En la Fase 1 fueron 3 de 118.
 - **Aviso de fallo sin correo hasta la Fase 7:** las incidencias quedan en la tabla `incidencias`
   (las escribe n8n directamente, decisión D25). El correo necesita la credencial de Gmail.
+- **El servicio del radar no pide contraseña.** Escucha solo en `127.0.0.1`, así que desde fuera del
+  ordenador no se llega; pero cualquier programa del propio equipo podría lanzar una ingesta. Es
+  aceptable en un portátil de una persona. **Si algún día se despliega en un servidor, hace falta
+  autenticación antes de abrir el puerto** (revisado el 26-09-2026: los tres puertos —5432, 5679 y
+  8000— solo escuchan en local).
+- **Autónomos:** un adjudicatario que es persona física se guarda seudonimizado y sin nombre
+  (`docs/DATOS.md` §7). Eso significa que el estudio **no puede elegir autónomos** como empresas, ni
+  medir nada sobre ellos. Es deliberado: son datos personales.
+- **Copias de seguridad:** no hay. Si se pierde la base de datos se reconstruye desde los ficheros
+  de `data/raw/`, que siguen en disco y no hay que volver a descargar; son unas dos horas de proceso.
+  Lo que no se puede perder es `data/raw/` y el `.env`.
 
 ## 10. Fuera de alcance
 

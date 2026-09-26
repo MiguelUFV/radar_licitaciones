@@ -42,6 +42,9 @@ BASE = (
 # 4 minutos. Esto no es el total: es lo que se tolera sin recibir un solo byte. Con 15 minutos
 # una conexión muerta (el portátil se durmió) tardaba una eternidad en darse por vencida.
 ESPERA = 120.0
+# Una página del feed ocupa unos 17 MB descomprimida. Este tope es el que separa "el fichero
+# de este mes es grande" de "esto no es lo que dice ser".
+MAXIMO_POR_FICHERO = 200 * 1024 * 1024
 
 
 def meses(desde: str, hasta: str) -> list[str]:
@@ -115,6 +118,22 @@ def interesa(lic, dentro_de_la_ventana: bool, conocidos: set[str]) -> bool:
     return bool(lic.adjudicatario_nif) and lic.entry_id in conocidos
 
 
+def comprobar_tamanos(zip_mes: zipfile.ZipFile, nombres: list[str], mes: str) -> None:
+    """Un .atom del feed pesa unos 17 MB descomprimido.
+
+    Si uno declara cientos de megas, o el fichero está mal o alguien lo ha manipulado para
+    que llene la memoria al abrirlo. Se para antes de leerlo, no después.
+    """
+    for nombre in nombres:
+        tamano = zip_mes.getinfo(nombre).file_size
+        if tamano > MAXIMO_POR_FICHERO:
+            raise ErrorRadar(
+                f"Una de las páginas del mes {mes} ocupa {tamano / 1_048_576:.0f} MB al "
+                "descomprimirse, mucho más de lo normal. No se abre.",
+                detalle=f"{nombre}: {tamano} bytes",
+            )
+
+
 def totales_del_mes(conexion, sha256: str) -> dict:
     """Lo que hay en la base para ese zip, venga de la pasada que venga."""
     with conexion.cursor() as cur:
@@ -157,6 +176,7 @@ def cargar_mes(conexion, mes: str, run_id, cliente, ventana: tuple[str, str] | N
                 f"El fichero del mes {mes} no trae ninguna página del feed dentro.",
                 detalle=str(zip_mes.namelist()[:5]),
             )
+        comprobar_tamanos(zip_mes, nombres, mes)
         for nombre in nombres:
             xml = zip_mes.read(nombre).decode("utf-8", "ignore")
             cuenta["ficheros_atom"] += 1
