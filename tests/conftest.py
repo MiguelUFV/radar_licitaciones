@@ -25,6 +25,7 @@ BASE_PRUEBAS = "radar_test"
 # `tipos_cambio`, y el test que comprobaba que sin tipo de cambio no se llama al modelo empezó
 # a pasar por el motivo equivocado.
 TABLAS = [
+    "triajes",
     "llm_llamadas",
     "eval_resultados",
     "adjudicaciones",
