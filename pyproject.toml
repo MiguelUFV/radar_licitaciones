@@ -11,6 +11,7 @@ dependencies = [
     "psycopg[binary]>=3.3",
     "fastapi>=0.141",
     "uvicorn[standard]>=0.38",
+    "anthropic>=1.8.0",
 ]
 
 [dependency-groups]

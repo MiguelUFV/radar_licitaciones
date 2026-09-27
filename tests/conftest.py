@@ -20,14 +20,24 @@ import pytest
 FIXTURES = Path(__file__).parent / "fixtures"
 BASE_PRUEBAS = "radar_test"
 
+# Todas las tablas de la aplicación. Si se añade una migración con una tabla nueva, va aquí:
+# la que falte deja filas de un test metiéndose en el siguiente. Pasó el 27-09-2026 con
+# `tipos_cambio`, y el test que comprobaba que sin tipo de cambio no se llama al modelo empezó
+# a pasar por el motivo equivocado.
 TABLAS = [
+    "llm_llamadas",
+    "eval_resultados",
     "adjudicaciones",
     "documentos",
     "lotes",
     "bajas",
     "licitaciones",
     "stg_entradas",
+    "historico_meses",
     "raw_ficheros",
+    "perfiles",
+    "incidencias",
+    "tipos_cambio",
     "ejecuciones",
     "cursor_feed",
 ]

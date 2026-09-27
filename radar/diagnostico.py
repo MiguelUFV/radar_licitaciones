@@ -20,6 +20,16 @@ from radar.red import crear_cliente
 OK, FALLO, AVISO = "  [ok]   ", "  [FALLO]", "  [aviso]"
 
 
+def parece_clave_anthropic(valor: str | None) -> bool:
+    """Que la clave tenga forma de clave.
+
+    El 27-09-2026 en ANTHROPIC_API_KEY habia pegada la direccion de un perfil de LinkedIn, y
+    el diagnostico la daba por buena porque solo miraba que no estuviera vacia. Una clave mal
+    puesta se descubre en la primera llamada al modelo, y esa llamada se paga.
+    """
+    return bool(valor) and valor.startswith("sk-ant-") and len(valor) > 50
+
+
 def comprobar_python() -> tuple[bool, str]:
     v = sys.version_info
     if (v.major, v.minor) != (3, 12):
@@ -37,10 +47,21 @@ def comprobar_env() -> list[tuple[bool, str, bool]]:
         ("POSTGRES_PASSWORD", True, "la base de datos"),
         ("N8N_ENCRYPTION_KEY", True, "n8n"),
         ("SAL_PERSONAS", True, "no guardar en claro el DNI de los adjudicatarios autónomos"),
+        ("TIPO_CAMBIO_USD_EUR", True, "decir en euros lo que cuesta cada ejecución"),
+        ("PRESUPUESTO_DIARIO_EUR", True, "no gastar más de la cuenta en el modelo"),
         ("ANTHROPIC_API_KEY", False, "el modelo (hace falta a partir de la Fase 4)"),
     ]:
         valor = os.getenv(variable)
-        if valor:
+        if valor and variable == "ANTHROPIC_API_KEY" and not parece_clave_anthropic(valor):
+            resultados.append(
+                (
+                    False,
+                    f"Lo que hay en {variable} no parece una clave de Anthropic: empiezan por "
+                    "sk-ant- y tienen mas de 100 caracteres. Revisa que no hayas pegado otra cosa.",
+                    critica,
+                )
+            )
+        elif valor:
             resultados.append((True, f"{variable} definida", critica))
         else:
             resultados.append((False, f"Falta {variable} en .env, necesaria para {para_que}.", critica))

@@ -11,7 +11,7 @@ después de publicar una medición.
 
 | Empresa | Papel | Fuentes | Congelado | sha256 del perfil |
 |---|---|---|---|---|
-| Empresa A | desarrollo | 2 | 2026-09-26 | `11fe4ea851d94187d03d99e299fec46dc956ba322a202fb005c7e94370a72274` |
+| Empresa A | desarrollo | 2 | 2026-09-27 | `11fe4ea851d94187d03d99e299fec46dc956ba322a202fb005c7e94370a72274` |
 
 Generado por `radar/perfiles.py` el 2026-09-27.
 

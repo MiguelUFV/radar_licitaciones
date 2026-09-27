@@ -245,3 +245,16 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
   conversación, que no está en esta máquina. Se ha borrado de la transcripción local (17 trozos). Si
   algún día se enciende la API y se deja encendida, el riesgo vuelve.
 - **Lo correcto sigue siendo rotarla.** Esto es lo segundo mejor.
+
+## D33 · El tipo de cambio va en `.env` hasta que se pueda descargar
+- **Motivo:** el coste en euros es una cifra que se publica, así que no puede salir de un número
+  puesto a mano sin fuente. La fuente elegida es `api.frankfurter.app`, que publica los tipos del BCE
+  (docs/DATOS.md §2).
+- **Estado:** `radar/red.py` solo descarga de los dominios de la Plataforma (D31), así que bajar el
+  tipo de cambio requiere añadir ese dominio a la lista. Hasta entonces se usa
+  `TIPO_CAMBIO_USD_EUR` de `.env`, con su fuente y su fecha escritas al lado, y cada llamada al
+  modelo guarda **qué cambio usó y de dónde salía** (columnas `tipo_cambio` y `tipo_cambio_origen`).
+- **Decisión:** `radar/llm.py` busca primero el cambio del día en la tabla `tipos_cambio` y solo usa
+  el de `.env` si no está. Así, cuando se añada la descarga, el código no cambia.
+- **Pendiente de la Fase 4:** añadir `api.frankfurter.app` a los dominios permitidos y guardar la
+  respuesta original en la capa raw, como cualquier otro dato descargado.
