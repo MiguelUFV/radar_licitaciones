@@ -122,12 +122,14 @@ Informe en `docs/informes/fase4_agente.md`. Lo que **no** se consigue todavía: 
       son un volumen (ratios, seguro de responsabilidad civil); y un veredicto intermedio del tipo
       «cumple lo económico, quedan N cosas por comprobar». Se deciden con M6, no antes
 - [ ] Ejecución sobre el periodo de test con Batch API (50 % más barato), con un presupuesto fijado de antemano
-- [ ] M1–M5 y M8 automáticos; intervalos de confianza por bootstrap
+- [x] M1, M2, M5, M7 y M8 automáticos, con intervalo por bootstrap pareado (`radar/evaluacion/agente.py`, `radar/evaluacion/trabajo.py`). **Medición a medias:** el tope diario cortó la tanda con 40 de los 77 contratos triados; se reanuda con el mismo comando
+- [ ] Completar M1 (faltan Empresas F y G) y M2 (faltan los no ganados de F y G)
 - [ ] M6: tú etiquetas a ciegas una mezcla (agente, baseline, ambos); la herramienta oculta de dónde viene cada caso
-- [ ] M7: recuento automático del trabajo evitado (páginas por licitación, documentos abiertos, saltos entre documentos)
+- [x] M7: **10,87 veces menos páginas** (4,7 señaladas frente a 51,5 del pliego) y un documento abierto en lugar de 4,3
 - [ ] M7b (opcional, solo si se hizo antes de la Fase 4): minutos cronometrados a mano frente a con el radar
-- [ ] `uv run python -m radar.evaluacion --informe` regenera el informe sin volver a llamar a la API
-- [ ] Informe `docs/informes/fase5_resultados.md`, que dice "sostenida / refutada / no concluyente"
+- [x] `uv run python -m radar.evaluacion --informe` regenera el informe sin volver a llamar a la API
+- [x] Informe `docs/informes/fase5_resultados.md`, generado por el comando y no a mano. Con la medición a medias dice **no concluyente** frente a los dos baselines
+- [ ] M3: leer los pliegos de los contratos ganados de las empresas de test (unos 5,4 €)
 
 **Puerta:** otra persona clona el repo, restaura los datos y obtiene las mismas cifras.
 
