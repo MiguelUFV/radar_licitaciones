@@ -30,7 +30,19 @@ Cada decisión dice cuándo hay que revisarla. Las nuevas se añaden al final co
 
 ## D06 · Modelos
 - **Extracción de requisitos:** `claude-opus-5`. Un error aquí descarta un contrato que la empresa podía ganar (M3), y el coste por pliego es bajo en términos absolutos.
-- **Triaje:** se decide con el **experimento de la Fase 4**: `claude-opus-5` con esfuerzo bajo frente a `claude-haiku-4-5`, sobre las empresas de desarrollo, por M1 y coste. Mi expectativa es que Haiku baste para juzgar relevancia con título y CPV, pero decide el dato. También se prueba agrupar unas 20 licitaciones por llamada.
+- **Triaje: `claude-haiku-4-5`, en lotes de 20 licitaciones por llamada.** Decidido el 27-09-2026 con el experimento diseñado en `docs/EXPERIMENTO_TRIAJE.md` y medido en `docs/informes/fase4_triaje.md` (600 triajes reales sobre las dos empresas de desarrollo, 0,83 € de gasto):
+
+| Variante | Recall (24 contratos ganados) | Volumen al día | € por 100 licitaciones |
+|---|---|---|---|
+| **`haiku_lote20`** | **24/24** | **37,9 y 53,0** | **0,0403** |
+| `haiku_individual` | 24/24 | 7,6 y 53,0 | 0,1845 |
+| `opus_lote20` (esfuerzo bajo) | 24/24 | 60,6 y 68,2 | 0,1888 |
+
+  Los tres recalls son idénticos, así que se aplica la regla 4 que estaba escrita antes de medir
+  («a menos de 8 puntos, gana la más barata»). Opus no acierta ni un contrato más, deja pasar un
+  42 % más de licitaciones (64,4 al día de media frente a 45,5) y cuesta 4,7 veces más. Se confirma la expectativa: Haiku basta para
+  juzgar relevancia con el objeto y el CPV.
+- **Lo que el experimento no zanjó:** de una en una, Empresa A baja de 37,9 a 7,6 licitaciones al día con el mismo recall, es decir, mirar la licitación sola es **más selectivo**. La regla congelada ordenaba por recall y coste, no por volumen, así que gana el lote; si la precisión (M6) sale floja en la Fase 5, esto es lo primero que hay que volver a probar.
 - **Estimación orientativa** (precios oficiales a 2026-06-24 en USD/MTok: Opus 5 5/25, Sonnet 5 2/10, Haiku 4.5 1/5; lectura de caché al 10 % de la entrada; 1 USD = 0,8726 € según el BCE del 2026-09-18):
 
 | | Opus 5 | Sonnet 5 | Haiku 4.5 |
@@ -48,6 +60,7 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
 | Sonnet 5 en todo | 1,55 | ≈ 57 € |
 
 - **Riesgo de la estimación:** si el prefijo fijo no llega al mínimo que el modelo necesita para cachear (entre 512 y 4.096 tokens según el modelo), no hay ahorro por caché. Se comprueba en la Fase 1 con `cache_read_input_tokens`.
+- **Qué acertó y qué falló de la estimación** (27-09-2026, con el triaje ya medido): la estimación daba 0,12 € por 100 licitaciones con Haiku y han salido **0,0403 €**, tres veces menos, porque agrupar 20 por llamada reparte el perfil entre las 20 y no hizo falta caché. Con Opus daba 1,03 € y han salido **0,1888 €**: la estimación suponía 200 fichas de razonamiento por licitación y con esfuerzo bajo el lote entero gasta unas 800. Las dos estimaciones eran pesimistas, que es como tenían que estar equivocadas.
 - **Revisar:** al cerrar la Fase 1 (tokens reales con `count_tokens`, que es gratis) y al cerrar el experimento de la Fase 4.
 
 ## D07 · PDF: `pypdf` para el texto; los escaneados, al modelo como PDF

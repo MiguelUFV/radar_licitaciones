@@ -97,12 +97,13 @@ cualquier fila de `licitaciones` se remonta a su fichero raw (test + consulta en
 
 ## Fase 4 — Agente LangGraph v1
 
-- [ ] `radar/llm.py`: única puerta al SDK de Anthropic; registra uso, coste y `request_id`; aplica el presupuesto
-- [ ] Nodos: triaje → documento → texto/OCR → localizar → extraer (cita y página) → verificar cita → evaluar (Python) → ficha
+- [x] `radar/llm.py`: única puerta al SDK de Anthropic; registra uso, coste y `request_id`; aplica el presupuesto **antes** de llamar
+- [x] Nodo de **triaje** (`radar/triaje.py`), con el prompt versionado en `radar/prompts/triaje_v1.md`
+- [ ] Resto de nodos: documento → texto/OCR → localizar → extraer (cita y página) → verificar cita → evaluar (Python) → ficha
 - [ ] Checkpointer de Postgres: cada paso del grafo queda guardado
 - [ ] Reglas de evaluación versionadas (`radar/reglas/`), probadas con casos reales
-- [ ] **Experimento del modelo de triaje:** Opus 5 (esfuerzo bajo) frente a Haiku 4.5, sobre las empresas de desarrollo. Se elige por M1 y coste; queda en DECISIONES D06
-- [ ] Ajuste de prompts SOLO con las empresas de desarrollo
+- [x] **Experimento del modelo de triaje:** hecho el 27-09-2026. Diseño congelado en `docs/EXPERIMENTO_TRIAJE.md` antes de medir; 600 triajes reales por 0,83 €. Los tres recalls empatan (24/24), así que gana el más barato: **Haiku 4.5 en lotes de 20** (D06). Informe en `docs/informes/fase4_triaje.md`
+- [ ] Ajuste de prompts SOLO con las empresas de desarrollo (el triaje va por `triaje_v1`, sin ajustar)
 
 **Puerta:** el grafo recorre todas sus ramas con fixtures reales y M5 ≥ 98 % en desarrollo.
 

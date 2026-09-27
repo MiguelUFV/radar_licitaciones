@@ -173,6 +173,13 @@ flowchart TD
   contrato, pero quedan más ordenados que el perfil que escribiría un cliente real, y eso **favorece
   al radar**. Es el sesgo más importante del estudio y se repite en el informe. Dos de los siete se
   apoyan en fuentes de segunda mano porque la web de la empresa bloquea el acceso automatizado.
+- **Contratos que nombran el producto de la empresa.** De los 12 contratos que Empresa A ganó en el
+  periodo del estudio, **9 nombran en el objeto un producto suyo** (medido el 27-09-2026 con el
+  triaje de la Fase 4). El triaje los reconoce por el nombre, no por entender la materia: una
+  búsqueda de texto plano los encontraría igual. Empresa B es el contraste exacto: ninguno de sus 12
+  lleva marca en el objeto y el triaje los encontró todos por la materia del contrato. Al medir la
+  Fase 5 se publica, por empresa, cuántos contratos llevan marca en el objeto: sin ese dato el recall
+  se lee mejor de lo que es.
 - **Cifras de negocio en intervalos:** ninguna de las siete publica su facturación exacta; los
   directorios dan intervalos (uno de ellos, de 6 a 30 millones). Se usa siempre el extremo inferior,
   que exige menos solvencia y por tanto descarta menos licitaciones: es la lectura conservadora para

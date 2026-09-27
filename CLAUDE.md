@@ -28,6 +28,7 @@ y el orden de los commits es la prueba de que no se cambió:
 | `docs/BASELINE.md` | Cómo se construye el rival. Anterior a tener perfiles |
 | `docs/perfiles_congelados.md` | El sha256 de cada perfil |
 | `docs/baselines/empresa_*.md` | El filtro CPV de cada empresa |
+| `docs/EXPERIMENTO_TRIAJE.md` | Variantes, muestra y regla de decisión de D06. Anterior a la primera llamada de triaje |
 
 Si de verdad hay que cambiar uno: se añade una entrada al apartado **Cambios** del propio documento,
 con fecha y motivo, y **se vuelve a medir** lo que dependa de él. Nunca se edita el texto original.
@@ -51,8 +52,8 @@ commits y documentación. Términos técnicos sin traducción forzada (feed, com
 6. **Interfaz sobria.** Sin emojis, sin superlativos, sin plantillas genéricas.
 7. **Coste controlado.** Toda llamada al LLM pasa por `radar/llm.py`, que registra tokens, coste en
    USD y en EUR, y respeta el presupuesto de `.env`. Prohibido llamar al SDK desde otro sitio.
-   *Ese módulo todavía no existe: es lo primero de la Fase 4. Hasta entonces no hay ninguna llamada a
-   ningún modelo en el proyecto.*
+   El presupuesto se comprueba **antes** de llamar, contando los tokens de entrada con
+   `count_tokens` (gratis) y suponiendo la salida al máximo.
 
 ## Comandos
 ```bash
@@ -104,6 +105,9 @@ feed/zip de PLACSP → capa raw (fichero + sha256) → stg_entradas → núcleo 
   manejador de `ErrorRadar`, y salen como 503 con mensaje en español.
 - **`radar/n8n.py`** — los workflows se definen en código, se publican por la API y se exportan a
   `n8n/workflows/`. No se editan a mano en el lienzo.
+- **`radar/triaje.py`** — primer nodo del grafo. El modelo clasifica con una lista cerrada de tres
+  decisiones y Python decide (D09); lo que el modelo no contesta queda como `revisar`, nunca se
+  descarta en silencio. Los prompts, en `radar/prompts/` con la versión en el nombre del fichero.
 - **`radar/seleccion.py`, `radar/baseline.py`, `radar/evaluacion/`** — el método del estudio. La regla
   y el procedimiento se congelan **antes** de aplicarlos (`docs/REGLA_SELECCION.md`, `docs/BASELINE.md`);
   estos módulos solo los ejecutan y no deciden nada.

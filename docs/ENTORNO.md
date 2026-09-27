@@ -188,6 +188,10 @@ Todos se ejecutan en una terminal, dentro de la carpeta del proyecto.
 | Bajar pliegos pendientes | `uv run python -m radar.pliegos --limite 20` |
 | Carga histórica (reanudable) | `uv run python -m radar.historico --desde 2025-01 --hasta 2026-08 --ventana 2025-01 2025-06` |
 | Ver los procesos automáticos | Abrir `http://localhost:5679` en el navegador |
+| Medir el baseline (no gasta nada) | `uv run python -m radar.evaluacion.baselines` |
+| Estimar lo que costaría el experimento de triaje | `uv run python -m radar.evaluacion.triaje` |
+| …y ejecutarlo de verdad | `uv run python -m radar.evaluacion.triaje --gastar` |
+| Rehacer las cifras del triaje sin volver a pagar | `uv run python -m radar.evaluacion.triaje --solo-medir` |
 
 Arreglos que solo hacen falta si el diagnóstico los pide:
 
