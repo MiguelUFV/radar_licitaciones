@@ -126,3 +126,40 @@ def test_el_registro_versionado_no_lleva_nombres_ni_direcciones(bd, tmp_path):
     assert "B00000001" not in texto  # el NIF no sale
     assert "ejemplo.es" not in texto  # las direcciones tampoco
     assert "desarrollo" in texto
+
+
+# --- La cifra de negocio, que estaba escrita en el perfil y no en la tabla ---------------
+#
+# El 27-09-2026 los siete perfiles estaban congelados con su cifra de negocio dentro, y la
+# columna `cifra_negocio` estaba vacía en las siete filas. Consecuencia: la regla del volumen
+# de negocios no podía dispararse nunca y M3 no se podía medir. Se carga del texto congelado.
+
+FILA_CON_INTERVALO = (
+    "| Campo | Valor | De dónde sale |\n"
+    "|---|---|---|\n"
+    "| Cifra anual de negocio | Entre 600.000 € y 1.500.000 € (intervalo) | Iberinform, 27-09-2026 |\n"
+    "| Año de esa cifra | No se publica | |\n"
+)
+
+
+def test_de_un_intervalo_se_toma_el_extremo_inferior():
+    # SPEC §9: el extremo inferior es el que menos solvencia atribuye a la empresa, así que si
+    # con él el radar dice que cumple, cumple de verdad.
+    importe, fuente = perfiles.cifra_de(FILA_CON_INTERVALO)
+    assert importe == 600000.0
+    assert "Iberinform" in fuente
+
+
+def test_si_el_perfil_dice_que_no_hay_cifra_no_se_inventa():
+    texto = "| Cifra anual de negocio | **No publicada** | Buscada en cuatro directorios |\n"
+    importe, fuente = perfiles.cifra_de(texto)
+    assert importe is None and "sin cifra pública" in fuente
+
+
+def test_un_perfil_sin_esa_linea_no_da_cifra():
+    assert perfiles.cifra_de("## Qué hace\nSoftware de gestión.\n") == (None, None)
+
+
+def test_una_cifra_exacta_tambien_se_lee():
+    importe, _ = perfiles.cifra_de("| Cifra anual de negocio | 812.450 € | Cuentas depositadas |\n")
+    assert importe == 812450.0

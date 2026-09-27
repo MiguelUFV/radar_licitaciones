@@ -3,7 +3,7 @@
 Una sesión son unas 2–3 horas de trabajo con Claude Code. Total estimado: 14–18 sesiones.
 Ninguna fase empieza sin que la anterior cumpla su criterio de salida.
 
-**Fase activa: 4** (0, 1, 2 y 3 cerradas; informes en `docs/informes/`)
+**Fase activa: 5** (0 a 4 cerradas; informes en `docs/informes/`)
 
 | Fase | Objetivo | Sesiones | Puerta de salida |
 |---|---|---|---|
@@ -11,7 +11,7 @@ Ninguna fase empieza sin que la anterior cumpla su criterio de salida.
 | 1 | Medir los datos reales (go / no-go) | 1–2 | ✔ Cerrada el 25-09-2026: **GO**, las tres puertas cumplidas |
 | 2 | Ingesta con trazabilidad | 2 | ✔ Cerrada el 25-09-2026: ingesta diaria idempotente desde n8n |
 | 3 | Verdad de referencia y baseline (el "antes") | 1–2 | ✔ Cerrada el 27-09-2026: recall del filtro CPV **79,7 %** |
-| 4 | Agente LangGraph v1 | 3 | Grafo completo con desarrollo; modelo de triaje decidido |
+| 4 | Agente LangGraph v1 | 3 | ✔ Cerrada el 27-09-2026: **M5 = 100 %** (62/62) y D06 decidido |
 | 5 | Medición (el "después") | 2 | Informe M1–M8 reproducible con un comando |
 | 6 | Romperlo | 1–2 | Matriz de fallos: un test por fila, en verde |
 | 7 | Interfaz: correo y ficha | 1–2 | Correo diario real recibido |
@@ -99,16 +99,28 @@ cualquier fila de `licitaciones` se remonta a su fichero raw (test + consulta en
 
 - [x] `radar/llm.py`: única puerta al SDK de Anthropic; registra uso, coste y `request_id`; aplica el presupuesto **antes** de llamar
 - [x] Nodo de **triaje** (`radar/triaje.py`), con el prompt versionado en `radar/prompts/triaje_v1.md`
-- [ ] Resto de nodos: documento → texto/OCR → localizar → extraer (cita y página) → verificar cita → evaluar (Python) → ficha
-- [ ] Checkpointer de Postgres: cada paso del grafo queda guardado
-- [ ] Reglas de evaluación versionadas (`radar/reglas/`), probadas con casos reales
+- [x] Resto de nodos: documento → localizar → extraer (cita y página) → verificar cita → anexo → evaluar (Python) → ficha. **La rama de OCR no está hecha**: un pliego escaneado sale como «revisar» diciendo que es una imagen
+- [x] Checkpointer de Postgres: cada paso del grafo queda guardado (`PostgresSaver`, una licitación reanuda por su `thread_id`)
+- [x] Reglas de evaluación versionadas (`radar/reglas/v1.py`), probadas con casos reales
 - [x] **Experimento del modelo de triaje:** hecho el 27-09-2026. Diseño congelado en `docs/EXPERIMENTO_TRIAJE.md` antes de medir; 600 triajes reales por 0,83 €. Los tres recalls empatan (24/24), así que gana el más barato: **Haiku 4.5 en lotes de 20** (D06). Informe en `docs/informes/fase4_triaje.md`
-- [ ] Ajuste de prompts SOLO con las empresas de desarrollo (el triaje va por `triaje_v1`, sin ajustar)
+- [ ] Ajuste de prompts: **no se ha hecho.** Los dos van por su primera versión (`triaje_v1`,
+      `extraccion_v1`) y con eso ya se cumple la puerta, así que ajustarlos habría sido tocar lo que
+      funciona sin una medición que lo pidiera. Se hará si M4 o M6 lo piden en la Fase 5
 
-**Puerta:** el grafo recorre todas sus ramas con fixtures reales y M5 ≥ 98 % en desarrollo.
+**Puerta (cumplida el 27-09-2026):** M5 = **100 %** (62 de 62 extracciones con la cita comprobada en
+la página que dijo el modelo), el grafo recorre sus cuatro ramas y el coste por pliego es de 0,070 €.
+Informe en `docs/informes/fase4_agente.md`. Lo que **no** se consigue todavía: ninguna ficha llega a
+«puede presentarse», por falta de datos de la empresa y de dos reglas más, y está medido por qué.
 
 ## Fase 5 — Medición (el "después")
 
+- [ ] **Descargar los otros documentos del expediente, no solo el PCAP.** Es lo que más frena el
+      resultado útil: la cláusula de solvencia remite a un anexo que muchas veces va en otro fichero
+      (informe de la Fase 4 §9)
+- [ ] **Reglas v2**, con lo observado en la Fase 4 y deliberadamente no cambiado sobre la marcha:
+      `adscripcion` no debería forzar «revisar»; falta un tipo para los requisitos económicos que no
+      son un volumen (ratios, seguro de responsabilidad civil); y un veredicto intermedio del tipo
+      «cumple lo económico, quedan N cosas por comprobar». Se deciden con M6, no antes
 - [ ] Ejecución sobre el periodo de test con Batch API (50 % más barato), con un presupuesto fijado de antemano
 - [ ] M1–M5 y M8 automáticos; intervalos de confianza por bootstrap
 - [ ] M6: tú etiquetas a ciegas una mezcla (agente, baseline, ambos); la herramienta oculta de dónde viene cada caso

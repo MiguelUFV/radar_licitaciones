@@ -192,6 +192,11 @@ Todos se ejecutan en una terminal, dentro de la carpeta del proyecto.
 | Estimar lo que costaría el experimento de triaje | `uv run python -m radar.evaluacion.triaje` |
 | …y ejecutarlo de verdad | `uv run python -m radar.evaluacion.triaje --gastar` |
 | Rehacer las cifras del triaje sin volver a pagar | `uv run python -m radar.evaluacion.triaje --solo-medir` |
+| Ver qué pliegos quedan por leer y qué costaría | `uv run python -m radar.evaluacion.pliegos` |
+| …leerlos de verdad, con tope de gasto para la tanda | `uv run python -m radar.evaluacion.pliegos --gastar --tope 1.00` |
+| Rehacer M5 sin volver a pagar | `uv run python -m radar.evaluacion.pliegos --solo-medir` |
+| Bajar los pliegos de lo que el triaje dejó pasar | `uv run python -m radar.pliegos --del-triaje --limite 120` |
+| Leer un solo expediente de punta a punta | `uv run python -m radar.grafo --licitacion 65034 --empresa "Empresa A"` |
 
 Arreglos que solo hacen falta si el diagnóstico los pide:
 

@@ -173,6 +173,18 @@ flowchart TD
   contrato, pero quedan más ordenados que el perfil que escribiría un cliente real, y eso **favorece
   al radar**. Es el sesgo más importante del estudio y se repite en el informe. Dos de los siete se
   apoyan en fuentes de segunda mano porque la web de la empresa bloquea el acceso automatizado.
+- **El anexo con las cifras suele ir en otro fichero.** En los pliegos leídos, la cláusula de
+  solvencia casi nunca dice los requisitos: dice «los exigidos son los del Anexo Nº 1». Si ese anexo
+  está en el mismo PDF, el radar lo busca y lo lee (decisión D35); si va en otro documento del
+  expediente, **no lo abre**: la v1 solo descarga el PCAP. En esos casos la ficha sale como «revisar»
+  con los requisitos genéricos ya citados y diciendo a qué anexo hay que ir. Es la limitación que más
+  afecta al resultado útil, y se mide: el informe de la Fase 4 publica cuántas fichas acaban así.
+- **Solo se lee el pliego administrativo (PCAP).** El pliego técnico (PPT) y los anexos sueltos no se
+  descargan todavía, aunque el feed traiga sus enlaces. Un requisito que solo esté ahí no se ve.
+- **Una cita es literal salvo espacios y comillas.** La comprobación normaliza espacios, guiones de
+  partición y comillas tipográficas antes de comparar, porque el texto extraído de un PDF parte las
+  frases donde le conviene. Las palabras y las mayúsculas se comparan tal cual. Un modelo que
+  reescribiera la frase con otras palabras sería rechazado, que es lo que se busca.
 - **Contratos que nombran el producto de la empresa.** De los 12 contratos que Empresa A ganó en el
   periodo del estudio, **9 nombran en el objeto un producto suyo** (medido el 27-09-2026 con el
   triaje de la Fase 4). El triaje los reconoce por el nombre, no por entender la materia: una

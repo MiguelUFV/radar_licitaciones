@@ -271,3 +271,52 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
   el de `.env` si no está. Así, cuando se añada la descarga, el código no cambia.
 - **Pendiente de la Fase 4:** añadir `api.frankfurter.app` a los dominios permitidos y guardar la
   respuesta original en la capa raw, como cualquier otro dato descargado.
+
+## D34 · Las páginas del pliego se eligen buscando el ancla y leyendo hacia delante
+- **El problema:** un PCAP tiene entre 13 y 112 páginas y los requisitos viven en dos o tres.
+  Mandarlo entero al modelo cuesta diez veces más y además lo despista.
+- **Dos intentos que salieron mal, los dos vistos con pliegos reales:**
+  1. *«Las seis primeras páginas que coincidan con algún patrón»*: el patrón de certificaciones (ISO)
+     aparece en el índice y en 20 páginas del apartado técnico, así que en un pliego de 112 páginas
+     se llevaba las páginas 1 a 7 y **la solvencia estaba en la 54**.
+  2. *«El tramo de seis páginas con más puntos en total»*: seis páginas mediocres seguidas suman más
+     que la sección de solvencia de dos páginas.
+- **Decisión:** se puntúa cada página (sección de solvencia 3, requisito del núcleo 2, otro requisito
+  1, cifra en euros 1, índice −3), se toma la de más puntos como **ancla** y se leen esa y las
+  siguientes hasta 6, quitando las del final que no aporten nada. Es lo que hace una persona:
+  encuentra el encabezado y sigue leyendo.
+- **Medición (36 pliegos descargados, 27-09-2026):** las tres reglas aciertan lo mismo (14 de los 15
+  pliegos donde se puede comprobar que la página con el requisito y su cifra entra en la ventana),
+  pero el ancla manda **141 páginas en lugar de 182**. Leer solo 4 hacia delante acertaba igual y
+  bajaba a 103; no se hace porque el criterio solo se puede comprobar en 15 de los 36 pliegos y no se
+  recorta contexto para ahorrar sobre una medición que no cubre el caso. Queda como palanca de coste
+  para la Fase 5.
+- **Revisar si:** M4 (exactitud de la extracción) sale flojo, que sería el síntoma de que la ventana
+  se queda corta.
+
+## D35 · El «remite al Anexo N» se sigue una vez, y solo si el anexo trae cifras
+- **Lo que pasa de verdad:** en la mayoría de los pliegos leídos, la cláusula de solvencia no dice
+  los requisitos: dice «los exigidos son los del Anexo Nº 1». Sin seguir ese salto, casi todos los
+  expedientes acabarían en «revisar» teniendo el dato a veinte páginas. Es la rama `ANX` que ya
+  estaba dibujada en `docs/SPEC.md` §4.
+- **Decisión:** si de la primera lectura sale algún requisito de tipo `remite` y **ninguna cifra**, se
+  busca ese anexo en el mismo documento y se lee. Un solo salto: si el anexo remite a otro sitio, se
+  para y va a una persona.
+- **Y el anexo solo cuenta si la página trae una cifra en euros.** La primera versión se llevaba la
+  otra mención del mismo anexo en otra cláusula, pagaba una segunda llamada y devolvía los mismos
+  requisitos genéricos. Comprobado con un pliego real de 86 páginas: **0,06 € por nada**. Si ninguna
+  página nombra el anexo con una cifra dentro, el anexo va en otro fichero del expediente y se dice
+  así, sin gastar.
+- **Consecuencia de coste:** un pliego son una o dos llamadas, nunca más.
+
+## D36 · Una llamada pagada nunca se queda sin apuntar
+- **El fallo, del 27-09-2026:** el grafo pasó a `radar/llm.py` un `run_id` que no era un
+  identificador. La llamada a Opus 5 se hizo, se pagó, y el `INSERT` en `llm_llamadas` falló
+  **después**. Resultado: gasto real que el presupuesto del día no veía, que es justo lo que el
+  innegociable 7 existe para evitar.
+- **Decisión, en dos partes:**
+  1. Los identificadores se comprueban **antes** de llamar al modelo, así que un error de programa
+     no cuesta dinero.
+  2. Si la fila completa no entra, se apunta una fila con lo imprescindible (nodo, modelo, tokens,
+     coste, cambio) y se avisa con un error legible. La cuenta no se pierde nunca; el fallo se ve.
+- **Cómo se demuestra:** dos tests en `tests/test_llm.py`, los dos en rojo antes del arreglo.

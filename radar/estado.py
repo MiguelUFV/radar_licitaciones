@@ -116,6 +116,27 @@ def informe() -> str:
             euros = f"{float(gastado):.4f}".replace(".", ",")
             lineas.append(f"  {'Gasto en el modelo hoy':38} {euros} EUR, {tope} ({llamadas} llamadas)")
 
+        cur.execute("SELECT count(*) FROM lecturas WHERE estado = 'leido'")
+        leidos = cur.fetchone()[0]
+        if leidos:
+            cur.execute(
+                "SELECT count(*) FILTER (WHERE verificada), count(*),"
+                " coalesce(sum(CASE WHEN verificada THEN 1 ELSE 0 END), 0) FROM requisitos"
+            )
+            verificadas, extracciones, _ = cur.fetchone()
+            cur.execute("SELECT veredicto, count(*) FROM fichas GROUP BY 1 ORDER BY 1")
+            veredictos = cur.fetchall()
+            lineas += ["", "PLIEGOS LEÍDOS (lo que el modelo ha sacado del PDF)"]
+            lineas.append(f"  {'Pliegos leídos':38} {leidos}")
+            porcentaje = 100 * verificadas / extracciones if extracciones else 0
+            lineas.append(
+                f"  {'Requisitos con cita comprobada':38} {verificadas} de {extracciones}"
+                f" ({porcentaje:.0f} %)"
+            )
+            nombres = {"apta": "puede presentarse", "no_apta": "no puede", "revisar": "a revisar"}
+            reparto = ", ".join(f"{n} {nombres.get(v, v)}" for v, n in veredictos)
+            lineas.append(f"  {'Fichas':38} {reparto}")
+
         lineas += ["", "AVISOS"]
         avisos = []
         cur.execute(f"SELECT count(*) FROM adjudicaciones WHERE {personas.SQL_EN_CLARO}")

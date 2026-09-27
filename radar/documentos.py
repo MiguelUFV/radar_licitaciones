@@ -29,23 +29,34 @@ REMITE = re.compile(r"anexo\s+[IVX0-9]|anuncio de licitaci[oó]n|cuadro (?:de ca
 CASILLAS = re.compile(r"[☐☑☒█]")  # ☐ ☑ ☒
 
 
-def analizar(datos: bytes) -> dict:
-    """Devuelve las medidas de un pliego. Lanza DocumentoIlegible si no es un PDF que se pueda abrir."""
+MINIMO_TEXTO = 50  # menos de esto en una página es una página sin capa de texto útil
+
+
+def paginas_de(datos: bytes) -> list[tuple[int, str]]:
+    """El texto de cada página, numeradas desde 1 como las ve una persona.
+
+    La numeración importa: la cita que extrae el modelo se verifica contra el texto de **esa**
+    página, y si aquí se empezara a contar en 0 la evidencia apuntaría a la página de al lado.
+    """
     if not datos:
         raise DocumentoIlegible("El pliego está vacío.")
     if datos[:4] != b"%PDF":
         raise DocumentoIlegible("El fichero descargado no es un PDF.", detalle=repr(datos[:40]))
-
     try:
         lector = PdfReader(io.BytesIO(datos))
         paginas = [(n + 1, p.extract_text() or "") for n, p in enumerate(lector.pages)]
     except Exception as e:  # pypdf lanza muchas cosas distintas ante un fichero dañado
         raise DocumentoIlegible("El pliego no se ha podido leer (fichero dañado).", detalle=str(e)) from e
-
     if not paginas:
         raise DocumentoIlegible("El pliego no tiene páginas.")
+    return paginas
 
-    con_texto = [n for n, t in paginas if len(t.strip()) > 50]
+
+def analizar(datos: bytes) -> dict:
+    """Devuelve las medidas de un pliego. Lanza DocumentoIlegible si no es un PDF que se pueda abrir."""
+    paginas = paginas_de(datos)
+
+    con_texto = [n for n, t in paginas if len(t.strip()) > MINIMO_TEXTO]
     texto_completo = "\n".join(t for _, t in paginas)
 
     paginas_requisitos: dict[str, int] = {}

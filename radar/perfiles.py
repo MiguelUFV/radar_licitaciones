@@ -51,6 +51,64 @@ def fuentes_de(texto: str) -> str:
     return "\n".join(lineas)
 
 
+# La línea del perfil que trae la cifra de negocio, y los importes que haya en ella.
+CIFRA = re.compile(r"^\|\s*Cifra anual de negocio\s*\|(.+?)\|(.*?)\|\s*$", re.M | re.I)
+IMPORTE = re.compile(r"([\d][\d.\s]*)\s*€")
+SIN_CIFRA = re.compile(r"no\s+(publicada|localizada|consta|disponible)", re.I)
+
+
+def cifra_de(texto: str) -> tuple[float | None, str | None]:
+    """La cifra de negocio de un perfil y de dónde sale.
+
+    Los directorios publican intervalos, no cifras exactas. Se usa **el extremo inferior**
+    (`docs/SPEC.md` §9): es el que menos solvencia atribuye a la empresa, así que si con él el
+    radar dice que cumple, cumple de verdad.
+
+    Si el perfil dice que no hay cifra pública, devuelve None y esa empresa queda fuera de M3.
+    """
+    fila = CIFRA.search(texto or "")
+    if not fila:
+        return None, None
+    valor, fuente = fila.group(1).strip(), fila.group(2).strip()
+    if SIN_CIFRA.search(valor):
+        return None, f"sin cifra pública ({fuente})" if fuente else "sin cifra pública"
+    importes = [float(i.replace(".", "").replace(" ", "")) for i in IMPORTE.findall(valor)]
+    if not importes:
+        return None, f"sin cifra pública ({fuente})" if fuente else "sin cifra pública"
+    return min(importes), f"{valor} — {fuente}" if fuente else valor
+
+
+def cargar_cifras() -> list[tuple[str, float | None, str | None]]:
+    """Rellena `cifra_negocio` leyendo el perfil **ya congelado** de la base.
+
+    Se lee de la base, no del fichero, y se comprueba la huella antes: así la cifra sale del
+    mismo texto que se congeló. No se toca ningún perfil, solo se extrae un dato que estaba
+    escrito en él y que la tabla tenía vacío. Sin esta columna, la regla del volumen de
+    negocios no puede dispararse nunca y M3 no se puede medir.
+    """
+    resultados = []
+    with conectar() as conexion:
+        with conexion.cursor() as cur:
+            cur.execute(
+                "SELECT alias, texto, texto_sha256 FROM perfiles WHERE texto IS NOT NULL ORDER BY alias"
+            )
+            filas = cur.fetchall()
+        for alias, texto, huella in filas:
+            if hashlib.sha256(texto.encode("utf-8")).hexdigest() != huella:
+                raise ErrorRadar(
+                    f"El perfil de {alias} no coincide con su huella: no se carga nada hasta aclararlo."
+                )
+            importe, fuente = cifra_de(texto)
+            with conexion.cursor() as cur:
+                cur.execute(
+                    "UPDATE perfiles SET cifra_negocio = %s, cifra_fuente = %s WHERE alias = %s",
+                    (importe, fuente, alias),
+                )
+            resultados.append((alias, importe, fuente))
+        conexion.commit()
+    return resultados
+
+
 def congelar(carpeta: Path = CARPETA, rehacer: bool = False) -> dict:
     ficheros = sorted(carpeta.glob("perfil_empresa_*.md")) if carpeta.exists() else []
     if not ficheros:
@@ -135,7 +193,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Congela los perfiles de las empresas")
     parser.add_argument("--congelar", action="store_true")
     parser.add_argument("--rehacer", action="store_true", help="vuelve a congelar uno ya congelado")
+    parser.add_argument(
+        "--cifras", action="store_true", help="rellena la cifra de negocio desde el perfil congelado"
+    )
     args = parser.parse_args()
+    if args.cifras:
+        try:
+            cargadas = cargar_cifras()
+        except ErrorRadar as e:
+            print(f"\n{e}")
+            return 1
+        print()
+        for alias, importe, fuente in cargadas:
+            cuanto = f"{importe:,.0f} €".replace(",", ".") if importe else "sin cifra pública"
+            print(f"  {alias:12} {cuanto:22} {(fuente or '')[:60]}")
+        return 0
     if not args.congelar:
         parser.print_help()
         return 0

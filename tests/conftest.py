@@ -157,3 +157,42 @@ def como_antes_de_la_restriccion(bd):
             cur.execute(f"DELETE FROM adjudicaciones WHERE {SQL_EN_CLARO}")
             cur.execute(RESTRICCIONES.read_text(encoding="utf-8"))
             conexion.commit()
+
+
+def pdf_con_paginas(textos: list[str]) -> bytes:
+    """Un PDF de verdad con texto, escrito a mano.
+
+    DATOS DE EJEMPLO — no usar en producción. `pypdf` sabe leer texto pero no escribirlo, y los
+    tests de localización y de extracción necesitan páginas con palabras dentro: sin esto se
+    probaría con páginas en blanco, que es como no probar nada.
+    """
+    objetos: dict[int, bytes] = {}
+    ids = [3 + 2 * i for i in range(len(textos))]
+    objetos[1] = b"<< /Type /Catalog /Pages 2 0 R >>"
+    kids = b" ".join(b"%d 0 R" % i for i in ids)
+    objetos[2] = b"<< /Type /Pages /Count %d /Kids [%s] >>" % (len(textos), kids)
+    for texto, pid in zip(textos, ids, strict=True):
+        objetos[pid] = (
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents %d 0 R /Resources "
+            b"<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>" % (pid + 1)
+        )
+        lineas = [
+            b"("
+            + linea.replace("\\", "").replace("(", "").replace(")", "").encode("latin-1", "replace")
+            + b") Tj T*"
+            for linea in texto.split("\n")
+        ]
+        ops = b"BT /F1 11 Tf 14 TL 40 800 Td\n" + b"\n".join(lineas) + b"\nET"
+        objetos[pid + 1] = b"<< /Length %d >>\nstream\n%s\nendstream" % (len(ops), ops)
+
+    salida, posiciones = bytearray(b"%PDF-1.4\n"), {}
+    for numero in sorted(objetos):
+        posiciones[numero] = len(salida)
+        salida += b"%d 0 obj\n" % numero + objetos[numero] + b"\nendobj\n"
+    inicio = len(salida)
+    ultimo = max(objetos)
+    salida += b"xref\n0 %d\n0000000000 65535 f \n" % (ultimo + 1)
+    for numero in range(1, ultimo + 1):
+        salida += b"%010d 00000 n \n" % posiciones.get(numero, 0)
+    salida += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (ultimo + 1, inicio)
+    return bytes(salida)

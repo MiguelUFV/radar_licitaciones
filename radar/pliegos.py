@@ -48,9 +48,37 @@ LIMIT %s
 """
 
 
-def pendientes(conexion, limite: int, tipo: str, solo_informatica: bool) -> list[tuple[int, str]]:
+# Lo que el triaje dejó pasar. Este es el camino de verdad del grafo: el filtro barato decide
+# de qué expedientes se baja el pliego, y no un filtro de CPV escrito a mano. Se busca por
+# `entry_id` porque el triaje mira la versión más antigua del expediente y el enlace al pliego
+# puede aparecer en otra versión.
+CANDIDATOS_TRIAJE = """
+SELECT d.id, d.url
+FROM documentos d
+JOIN licitaciones l ON l.id = d.licitacion
+JOIN v_licitaciones_vigentes v ON v.entry_id = l.entry_id
+WHERE d.tipo = %s
+  AND d.estado_descarga IN ('pendiente', 'error')
+  AND d.intentos < %s
+  AND NOT v.anulada
+  AND l.entry_id IN (
+      SELECT l2.entry_id FROM triajes t
+      JOIN licitaciones l2 ON l2.id = t.licitacion
+      WHERE t.decision IN ('si', 'duda')
+  )
+ORDER BY d.id
+LIMIT %s
+"""
+
+
+def pendientes(
+    conexion, limite: int, tipo: str, solo_informatica: bool, del_triaje: bool = False
+) -> list[tuple[int, str]]:
     with conexion.cursor() as cur:
-        cur.execute(CANDIDATOS, (tipo, INTENTOS_MAXIMOS, solo_informatica, limite))
+        if del_triaje:
+            cur.execute(CANDIDATOS_TRIAJE, (tipo, INTENTOS_MAXIMOS, limite))
+        else:
+            cur.execute(CANDIDATOS, (tipo, INTENTOS_MAXIMOS, solo_informatica, limite))
         return cur.fetchall()
 
 
@@ -79,6 +107,7 @@ def descargar_pendientes(
     solo_informatica: bool = True,
     tipo_ejecucion: str = "manual",
     n8n_execution_id: str | None = None,
+    del_triaje: bool = False,
 ) -> dict:
     resumen = {
         "pedidos": 0,
@@ -90,7 +119,7 @@ def descargar_pendientes(
     }
     with conectar() as conexion:
         run_id = abrir_ejecucion(conexion, tipo_ejecucion, n8n_execution_id)
-        cola = pendientes(conexion, limite, tipo, solo_informatica)
+        cola = pendientes(conexion, limite, tipo, solo_informatica, del_triaje)
         resumen["pedidos"] = len(cola)
         seguidos = 0
 
@@ -162,9 +191,12 @@ def main() -> int:
     parser.add_argument("--limite", type=int, default=20)
     parser.add_argument("--tipo", default="PCAP", choices=["PCAP", "PPT", "anexo"])
     parser.add_argument("--todos", action="store_true", help="sin filtrar por CPV de informática")
+    parser.add_argument(
+        "--del-triaje", action="store_true", help="solo las que el triaje dejó pasar (si o duda)"
+    )
     args = parser.parse_args()
     try:
-        resumen = descargar_pendientes(args.limite, args.tipo, not args.todos)
+        resumen = descargar_pendientes(args.limite, args.tipo, not args.todos, del_triaje=args.del_triaje)
     except ErrorRadar as e:
         print(f"\n{e}")
         return 1

@@ -84,9 +84,12 @@ toda la base sin volver a descargar nada, y `data/privado/perfiles/`, con los pe
 El dato va siempre en la misma dirección, y cada capa solo conoce la anterior:
 
 ```
-feed/zip de PLACSP → capa raw (fichero + sha256) → stg_entradas → núcleo → evaluación
-     radar/red.py      radar/almacen.py         radar/ingesta.py        radar/evaluacion/
-                                                radar/historico.py
+feed/zip de PLACSP → capa raw (fichero + sha256) → stg_entradas → núcleo → agente → evaluación
+     radar/red.py      radar/almacen.py         radar/ingesta.py            │      radar/evaluacion/
+                                                radar/historico.py          │
+                                    triaje → documento → localizar → extraer → decidir → ficha
+                                    radar/triaje.py  radar/pliegos.py  radar/localizar.py
+                                    radar/extraccion.py  radar/reglas/  radar/grafo.py
 ```
 
 - **`radar/red.py`** — única puerta a internet. Solo descarga de los dominios de PLACSP, sigue las
@@ -108,6 +111,18 @@ feed/zip de PLACSP → capa raw (fichero + sha256) → stg_entradas → núcleo 
 - **`radar/triaje.py`** — primer nodo del grafo. El modelo clasifica con una lista cerrada de tres
   decisiones y Python decide (D09); lo que el modelo no contesta queda como `revisar`, nunca se
   descarta en silencio. Los prompts, en `radar/prompts/` con la versión en el nombre del fichero.
+- **`radar/localizar.py`** — qué páginas del pliego se leen. Sin modelo: puntúa las páginas, busca
+  el ancla y lee hacia delante con tope de 6 (D34). Es el nodo que fija el coste.
+- **`radar/extraccion.py`** — el modelo copia los requisitos con su cita y su página, y **Python
+  comprueba que esa cita aparece en esa página** antes de usarla. Una cita que no aparece se pide
+  otra vez y, si vuelve a fallar, el requisito no se usa. De aquí sale M5.
+- **`radar/reglas/`** — la decisión (apta / no apta / revisar), en Python y con versión en el nombre
+  del fichero. Solo el volumen de negocios puede descartar una licitación, porque es la única
+  comparación de dos números; el resto manda a revisar, nunca descarta.
+- **`radar/grafo.py`** — el grafo de LangGraph que une los nodos, con checkpointer de Postgres. Las
+  ramas son reales: sin pliego, sin sección de solvencia, el modelo contestando cualquier cosa y el
+  salto al anexo al que remite el pliego (D35). Ninguna rama descarta: todas acaban en una ficha con
+  el motivo escrito en castellano.
 - **`radar/seleccion.py`, `radar/baseline.py`, `radar/evaluacion/`** — el método del estudio. La regla
   y el procedimiento se congelan **antes** de aplicarlos (`docs/REGLA_SELECCION.md`, `docs/BASELINE.md`);
   estos módulos solo los ejecutan y no deciden nada.

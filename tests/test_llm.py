@@ -6,10 +6,11 @@ oficiales del 27-09-2026 y se comprueban a mano, porque de ellos sale el coste q
 
 import types
 
+import psycopg
 import pytest
 
 from radar import llm
-from radar.errores import FaltaConfiguracion
+from radar.errores import ErrorRadar, FaltaConfiguracion
 
 CAMBIO = 0.87
 
@@ -293,3 +294,44 @@ def test_una_respuesta_sin_texto_por_uso_de_herramienta_si_pasa(bd, entorno):
 
     respuesta, _ = llm.llamar("prueba", [{"role": "user", "content": "hola"}], max_tokens=100, api=api)
     assert llm.texto_de(respuesta) == ""
+
+
+# --- Una llamada pagada nunca se queda sin apuntar -------------------------------------
+#
+# El 27-09-2026 pasó: el grafo pasó un run_id que no era un identificador, la llamada a Opus
+# se hizo y se pagó, y el INSERT falló después. La llamada no quedó en `llm_llamadas`, así que
+# el presupuesto del día la ignoraba: gasto invisible, que es justo lo que el innegociable 7
+# prohíbe. De ahí estos dos tests.
+
+
+def test_un_run_id_que_no_es_identificador_se_rechaza_antes_de_pagar(bd, entorno):
+    api = ApiFalsa()
+    with pytest.raises(ErrorRadar) as fallo:
+        llm.llamar("prueba", [{"role": "user", "content": "hola"}], run_id=object(), api=api)
+    assert "identificador" in str(fallo.value)
+    assert api.peticiones == []  # lo importante: no se ha llamado al modelo
+
+
+def test_si_la_fila_completa_no_entra_se_apunta_lo_imprescindible(bd, entorno, monkeypatch):
+    api = ApiFalsa()
+    completo = llm.registrar
+    fallos = {"n": 0}
+
+    def registrar_que_falla_la_primera(conexion, fila):
+        # Simula lo que pasó: la fila completa no entra (una columna con un valor imposible).
+        if fallos["n"] == 0 and "licitacion" in fila:
+            fallos["n"] += 1
+            raise psycopg.ProgrammingError("cannot adapt type 'object'")
+        return completo(conexion, fila)
+
+    monkeypatch.setattr(llm, "registrar", registrar_que_falla_la_primera)
+    with pytest.raises(ErrorRadar) as fallo:
+        llm.llamar("prueba", [{"role": "user", "content": "hola"}], api=api)
+
+    assert "se ha apuntado" in str(fallo.value)
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT nodo, coste_eur FROM llm_llamadas")
+        filas = cur.fetchall()
+    assert len(filas) == 1, "la llamada se pagó: tiene que estar apuntada"
+    assert "incompleto" in filas[0][0]
+    assert float(filas[0][1]) > 0

@@ -22,6 +22,7 @@ import hashlib
 import json
 import os
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import date
 
@@ -199,6 +200,65 @@ def registrar(conexion, fila: dict) -> int:
     return identificador
 
 
+# Las columnas sin las que la contabilidad no sirve. Si la fila completa no entra en la tabla,
+# se apunta al menos esto: lo que costó y qué la pidió.
+IMPRESCINDIBLES = (
+    "nodo",
+    "modelo",
+    "request_id",
+    "tokens_entrada",
+    "tokens_salida",
+    "tokens_cache_escritura",
+    "tokens_cache_lectura",
+    "batch",
+    "coste_usd",
+    "coste_eur",
+    "tipo_cambio",
+    "tipo_cambio_origen",
+    "latencia_ms",
+    "stop_reason",
+)
+
+
+def comprobar_identificadores(run_id, licitacion) -> None:
+    """Que lo que se va a guardar sea guardable, **antes** de pagar la llamada.
+
+    Un identificador mal pasado no se descubría hasta el INSERT, que es después de gastar.
+    """
+    if run_id is not None and not isinstance(run_id, str | uuid.UUID):
+        raise ErrorRadar(
+            "El run_id de la llamada al modelo no es un identificador, así que no se podría "
+            "apuntar el gasto. No se llama al modelo.",
+            detalle=f"run_id={run_id!r}",
+        )
+    if licitacion is not None and not isinstance(licitacion, int):
+        raise ErrorRadar(
+            "El número de licitación de la llamada al modelo no es un número, así que no se "
+            "podría apuntar el gasto. No se llama al modelo.",
+            detalle=f"licitacion={licitacion!r}",
+        )
+
+
+def registrar_sin_perder_la_cuenta(conexion, fila: dict) -> tuple[int, str | None]:
+    """Apunta la llamada; si la fila completa no entra, apunta lo imprescindible.
+
+    El presupuesto del día se calcula sumando `llm_llamadas`, así que una llamada pagada y sin
+    fila es gasto invisible: el radar creería que le queda más presupuesto del que le queda.
+    """
+    try:
+        return registrar(conexion, fila), None
+    except Exception as e:  # noqa: BLE001  cualquier fallo de la base, la cuenta no se pierde
+        conexion.rollback()
+        minima = {c: fila[c] for c in IMPRESCINDIBLES if c in fila}
+        minima["nodo"] = f"{fila.get('nodo', '?')} (registro incompleto)"
+        identificador = registrar(conexion, minima)
+        return identificador, (
+            "La llamada al modelo se ha hecho y se ha apuntado su coste, pero no se han podido "
+            "guardar todos sus datos. Es un fallo del programa, no del modelo: avisa de esto."
+            f" Detalle: {type(e).__name__}"
+        )
+
+
 def llamar(
     nodo: str,
     mensajes: list[dict],
@@ -224,6 +284,7 @@ def llamar(
     if acepta_esfuerzo(modelo) and esfuerzo not in ESFUERZOS:
         raise ErrorRadar(f"Esfuerzo «{esfuerzo}» desconocido. Válidos: {', '.join(ESFUERZOS)}.")
 
+    comprobar_identificadores(run_id, licitacion)
     api = api or cliente()
     cambio, origen_cambio = tipo_de_cambio()
 
@@ -274,7 +335,10 @@ def llamar(
             "run_id": run_id,
             "licitacion": licitacion,
         }
-        ficha["id"] = registrar(conexion, ficha)
+        ficha["id"], aviso = registrar_sin_perder_la_cuenta(conexion, ficha)
+
+    if aviso:
+        raise ErrorRadar(aviso, detalle=f"nodo={nodo} modelo={modelo} id={ficha['id']}")
 
     # Opus 5 piensa por defecto, y el pensamiento gasta tokens de salida: con un max_tokens
     # corto se queda sin sitio y devuelve texto vacío. Se avisa, porque quien pidiera una
