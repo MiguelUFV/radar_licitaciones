@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from radar import personas
+from radar import llm, personas
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 
@@ -95,6 +95,26 @@ def informe() -> str:
             lineas.append(f"  {'Última vez':38} {hace_cuanto(diaria[0])}, {resultado} ({quien})")
         else:
             lineas.append(f"  {'Última vez':38} todavía no se ha lanzado ninguna")
+
+        cur.execute("SELECT count(DISTINCT licitacion), count(DISTINCT alias), count(*) FROM triajes")
+        miradas, empresas, decisiones = cur.fetchone()
+        if decisiones:
+            lineas += ["", "TRIAJE (el filtro que lee el modelo)"]
+            lineas.append(
+                f"  {'Decisiones del triaje':38} {decisiones} sobre {miradas} licitaciones"
+                f" y {empresas} empresa(s)"
+            )
+            cur.execute(
+                "SELECT count(*), coalesce(sum(coste_eur), 0) FROM llm_llamadas"
+                " WHERE llamada_en >= date_trunc('day', now())"
+            )
+            llamadas, gastado = cur.fetchone()
+            try:
+                tope = f"de {llm.presupuesto_diario():.2f} EUR de tope".replace(".", ",")
+            except ErrorRadar:
+                tope = "sin tope puesto en .env"
+            euros = f"{float(gastado):.4f}".replace(".", ",")
+            lineas.append(f"  {'Gasto en el modelo hoy':38} {euros} EUR, {tope} ({llamadas} llamadas)")
 
         lineas += ["", "AVISOS"]
         avisos = []

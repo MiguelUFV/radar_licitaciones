@@ -37,6 +37,11 @@ dice de cada una si merece la pena abrir el pliego: `si`, `duda` o `no`.
 | No ganados | 88 por empresa, al azar con semilla `20260927` |
 | Triajes por variante | 200 |
 
+Los 88 no ganados son **los mismos** para las dos empresas: el sorteo con la semilla saca el mismo
+orden y solo se le quitan los contratos que cada una ganó. Eso hace que las dos se midan sobre las
+mismas licitaciones —bien para comparar variantes— pero también que sus dos estimaciones de volumen
+estén correlacionadas: no son dos muestras independientes.
+
 ## 3. El resultado
 
 | Variante | Recall Empresa A | Recall Empresa B | Volumen A | Volumen B | € / 100 licitaciones |
