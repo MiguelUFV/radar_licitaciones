@@ -30,12 +30,17 @@ from dotenv import load_dotenv
 from radar.bd import conectar
 from radar.errores import ErrorRadar, FaltaConfiguracion
 
-# USD por millón de tokens: (entrada, salida).
-PRECIOS = {
-    "claude-opus-5": (5.00, 25.00),
-    "claude-sonnet-5": (2.00, 10.00),
-    "claude-haiku-4-5": (1.00, 5.00),
+# USD por millón de tokens y qué admite cada modelo.
+#
+# El esfuerzo no vale para todos: Haiku 4.5 devuelve "This model does not support the effort
+# parameter" (400), comprobado contra la API el 27-09-2026 en la primera llamada real. Y es
+# justo el modelo con el que se compara el triaje (D06), así que no es un detalle.
+MODELOS = {
+    "claude-opus-5": {"entrada": 5.00, "salida": 25.00, "esfuerzo": True},
+    "claude-sonnet-5": {"entrada": 2.00, "salida": 10.00, "esfuerzo": True},
+    "claude-haiku-4-5": {"entrada": 1.00, "salida": 5.00, "esfuerzo": False},
 }
+PRECIOS = {nombre: (d["entrada"], d["salida"]) for nombre, d in MODELOS.items()}
 POR_MILLON = 1_000_000
 ESCRITURA_CACHE = 1.25
 LECTURA_CACHE = 0.10
@@ -47,6 +52,10 @@ ESFUERZOS = ("low", "medium", "high", "xhigh", "max")
 
 class PresupuestoAgotado(ErrorRadar):
     """Se ha alcanzado el tope de gasto del día. No se llama al modelo."""
+
+
+class RespuestaCortada(ErrorRadar):
+    """El modelo se quedó sin tokens antes de escribir nada."""
 
 
 class ModeloDesconocido(ErrorRadar):
@@ -78,6 +87,11 @@ def precio_de(modelo: str) -> tuple[float, float]:
             detalle=f"conocidos: {', '.join(PRECIOS)}",
         )
     return PRECIOS[modelo]
+
+
+def acepta_esfuerzo(modelo: str) -> bool:
+    """Si el modelo admite `output_config.effort`. Mandárselo a quien no lo admite es un 400."""
+    return bool(MODELOS.get(modelo, {}).get("esfuerzo"))
 
 
 def coste_usd(modelo: str, uso: Uso, batch: bool = False) -> float:
@@ -207,7 +221,7 @@ def llamar(
     load_dotenv()
     modelo = modelo or os.getenv("MODELO_EXTRACCION", "claude-opus-5")
     precio_de(modelo)
-    if esfuerzo not in ESFUERZOS:
+    if acepta_esfuerzo(modelo) and esfuerzo not in ESFUERZOS:
         raise ErrorRadar(f"Esfuerzo «{esfuerzo}» desconocido. Válidos: {', '.join(ESFUERZOS)}.")
 
     api = api or cliente()
@@ -222,10 +236,13 @@ def llamar(
             "model": modelo,
             "max_tokens": max_tokens,
             "messages": mensajes,
-            # El esfuerzo sustituye al budget_tokens, que en estos modelos devuelve un 400.
-            "output_config": {"effort": esfuerzo},
             **extra,
         }
+        if acepta_esfuerzo(modelo):
+            # El esfuerzo sustituye al budget_tokens, que en estos modelos devuelve un 400.
+            peticion["output_config"] = {"effort": esfuerzo}
+        else:
+            esfuerzo = None  # no se apunta un esfuerzo que no se ha usado
         if sistema:
             peticion["system"] = sistema
 
@@ -258,6 +275,16 @@ def llamar(
             "licitacion": licitacion,
         }
         ficha["id"] = registrar(conexion, ficha)
+
+    # Opus 5 piensa por defecto, y el pensamiento gasta tokens de salida: con un max_tokens
+    # corto se queda sin sitio y devuelve texto vacío. Se avisa, porque quien pidiera una
+    # extracción recibiría "" y seguiría como si nada. La llamada ya queda apuntada: se pagó.
+    if ficha["stop_reason"] == "max_tokens" and not texto_de(respuesta):
+        raise RespuestaCortada(
+            f"El modelo se ha quedado sin espacio antes de escribir nada (max_tokens="
+            f"{max_tokens}). Sube max_tokens o baja el esfuerzo.",
+            detalle=f"nodo={nodo} modelo={modelo} request_id={ficha['request_id']}",
+        )
     return respuesta, ficha
 
 

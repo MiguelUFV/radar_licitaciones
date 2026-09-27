@@ -225,3 +225,71 @@ def test_sin_clave_no_se_construye_el_cliente(monkeypatch):
         llm.cliente()
     assert "sk-ant-" in str(fallo.value)
     assert "Traceback" not in str(fallo.value)
+
+
+def test_a_haiku_no_se_le_manda_el_esfuerzo(bd, entorno):
+    # Comprobado contra la API el 27-09-2026: Haiku 4.5 devuelve
+    # "This model does not support the effort parameter" (400). Y es justo el modelo con el
+    # que se compara en el experimento de triaje (D06), asi que esto tenia que fallar antes.
+    api = ApiFalsa()
+    _, ficha = llm.llamar(
+        "prueba",
+        [{"role": "user", "content": "hola"}],
+        modelo="claude-haiku-4-5",
+        max_tokens=100,
+        api=api,
+    )
+    assert "output_config" not in api.peticiones[0]
+    assert ficha["esfuerzo"] is None  # no se apunta un esfuerzo que no se ha usado
+
+
+def test_a_opus_y_sonnet_si_se_le_manda(bd, entorno):
+    for modelo in ("claude-opus-5", "claude-sonnet-5"):
+        api = ApiFalsa()
+        llm.llamar(
+            "prueba",
+            [{"role": "user", "content": "hola"}],
+            modelo=modelo,
+            max_tokens=100,
+            esfuerzo="low",
+            api=api,
+        )
+        assert api.peticiones[0]["output_config"] == {"effort": "low"}
+
+
+def test_acepta_esfuerzo_dice_lo_que_admite_cada_modelo():
+    assert llm.acepta_esfuerzo("claude-opus-5") is True
+    assert llm.acepta_esfuerzo("claude-sonnet-5") is True
+    assert llm.acepta_esfuerzo("claude-haiku-4-5") is False
+
+
+def test_una_respuesta_cortada_a_medias_no_pasa_en_silencio(bd, entorno):
+    # Comprobado con la API el 27-09-2026: Opus 5 piensa por defecto, asi que con max_tokens
+    # pequeno se gasta el presupuesto pensando y devuelve texto vacio con stop_reason
+    # max_tokens. Quien pidiera una extraccion recibiria "" y seguiria como si nada.
+    cortada = RespuestaFalsa(texto="")
+    cortada.content = [types.SimpleNamespace(type="thinking", thinking="")]
+    cortada.stop_reason = "max_tokens"
+    api = ApiFalsa(respuesta=cortada)
+
+    with pytest.raises(llm.RespuestaCortada) as fallo:
+        llm.llamar("prueba", [{"role": "user", "content": "hola"}], max_tokens=16, api=api)
+    assert "max_tokens" in str(fallo.value)
+    assert "Traceback" not in str(fallo.value)
+
+    # Pero la llamada queda apuntada: se ha pagado, asi que se registra.
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT stop_reason FROM llm_llamadas")
+        assert cur.fetchone()[0] == "max_tokens"
+
+
+def test_una_respuesta_sin_texto_por_uso_de_herramienta_si_pasa(bd, entorno):
+    # Sin texto pero con stop_reason tool_use es normal: el modelo quiere llamar a una
+    # herramienta. Eso no se corta.
+    con_herramienta = RespuestaFalsa(texto="")
+    con_herramienta.content = [types.SimpleNamespace(type="tool_use", name="buscar")]
+    con_herramienta.stop_reason = "tool_use"
+    api = ApiFalsa(respuesta=con_herramienta)
+
+    respuesta, _ = llm.llamar("prueba", [{"role": "user", "content": "hola"}], max_tokens=100, api=api)
+    assert llm.texto_de(respuesta) == ""
