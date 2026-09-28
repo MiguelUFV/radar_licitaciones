@@ -245,6 +245,11 @@ def del_radar() -> dict:
             f" WHERE t.decision IN ('si', 'duda') AND {el_dia('t.triada_en')} = ({ULTIMA_PASADA})"
         ),
     }
+    EFICIENCIA = """
+    SELECT DISTINCT ON (metrica, variante, alias) metrica, variante, alias, valor
+    FROM eval_resultados WHERE metrica IN ('M9', 'M10')
+    ORDER BY metrica, variante, alias, calculada_en DESC
+    """
     # Un requisito de verdad, con su cita y su página, para no poner un ejemplo inventado en un
     # documento que trata justamente de que nada sea inventado.
     UNO_DE_VERDAD = """
@@ -264,11 +269,14 @@ def del_radar() -> dict:
                 datos[nombre] = cur.fetchone()[0]
             cur.execute(UNO_DE_VERDAD)
             fila = cur.fetchone()
+            cur.execute(EFICIENCIA)
+            eficiencia = cur.fetchall()
     except Exception:  # noqa: BLE001  el dossier se puede generar sin la base delante
         return {"pruebas": datos["pruebas"], "sin_base": True}
     if fila:
         campos = ("cita", "pagina", "importe", "paginas_totales", "organo", "expediente")
         datos["ejemplo"] = dict(zip(campos, fila, strict=True))
+    datos["eficiencia"] = {(m, v, a): float(x) for m, v, a, x in eficiencia}
     return datos
 
 
@@ -649,6 +657,73 @@ def la_medicion() -> list:
             "El techo del radar no es el modelo: es lo poco que sabe de la empresa. Y eso cambia "
             "qué hay que arreglar. No hace falta un modelo mejor ni más páginas leídas; hace falta "
             "preguntarle a la empresa lo que no cuenta de sí misma."
+        ),
+    ]
+
+
+def lo_que_cuesta_cada_acierto(hoy: dict) -> list:
+    """M9 y M10. Se cuentan porque contestan la pregunta que M1 dejaba abierta, y porque el
+    resultado volvió a salir en contra de quien escribió la regla."""
+    cifras = hoy.get("eficiencia") or {}
+    if not cifras:
+        return []
+    empresas = sorted({a for _, _, a in cifras})
+    filas9 = [["Empresa", "Radar", "Filtro CPV estándar", "Filtro a medida"]]
+    filas10 = [["Empresa", "Radar", "Filtro CPV estándar", "Filtro a medida"]]
+    for alias in empresas:
+        filas9.append(
+            [
+                alias,
+                f"<b>{cifras.get(('M9', 'agente_test', alias), 0):,.0f}</b>".replace(",", "."),
+                f"{cifras.get(('M9', 'baseline_a', alias), 0):,.0f}".replace(",", "."),
+                f"{cifras.get(('M9', 'baseline_b', alias), 0):,.0f}".replace(",", "."),
+            ]
+        )
+        filas10.append(
+            [
+                alias,
+                f"<b>{cifras.get(('M10', 'agente_test', alias), 0) * 100:.0f} %</b>",
+                f"{cifras.get(('M10', 'baseline_a', alias), 0) * 100:.0f} %",
+                f"{cifras.get(('M10', 'baseline_b', alias), 0) * 100:.0f} %",
+            ]
+        )
+    ancho = (MEDIDA - 30 * mm) / 3
+    return [
+        p("4.5. Cuánto trabajo cuesta cada acierto", "sub"),
+        p(
+            "Queda una pregunta que la medición de arriba no contesta: un filtro que no filtra "
+            "encuentra el 100 % de los contratos y no sirve de nada. Hacía falta saber cuánto "
+            "papel cuesta cada acierto. La definición y la regla de decisión se escribieron "
+            "<b>antes</b> de calcular nada, pero <b>después</b> de conocer el resultado de "
+            "arriba, y eso las hace más débiles: por eso van aquí y no en lugar de aquello."
+        ),
+        # Cada tabla con su título pegado: una tabla de cinco filas partida por la mitad, con la
+        # cabecera en la página anterior, se lee mal y se interpreta peor.
+        KeepTogether(
+            [
+                p("Licitaciones que hay que revisar por cada contrato encontrado (menos es mejor):", "nota"),
+                tabla(filas9, [30 * mm, ancho, ancho, ancho]),
+            ]
+        ),
+        Spacer(1, 8),
+        KeepTogether(
+            [
+                p("Contratos encontrados si los tres entregaran la misma cantidad de papel:", "nota"),
+                tabla(filas10, [30 * mm, ancho, ancho, ancho]),
+            ]
+        ),
+        Spacer(1, 6),
+        p(
+            "<b>La regla pedía ganar a los dos rivales en tres de las cinco empresas y el radar "
+            "gana en dos.</b> Así que tampoco por aquí se rescata el resultado, y así se publica."
+        ),
+        p(
+            "Lo que sí aparece es una corrección de algo que el informe afirmaba: el radar es "
+            "mucho más selectivo que el filtro a medida —entrega hasta 36 veces menos papel—, "
+            "pero <b>no</b> es más selectivo que el filtro de CPV estándar en tres de las cinco "
+            "empresas. Y al revés: cuando se obliga a los tres a entregar la misma cantidad, el "
+            "filtro a medida se hunde en las cinco. Sus catorce puntos de ventaja salían de "
+            "repartir 288 licitaciones al día a una empresa que no las va a mirar."
         ),
     ]
 
@@ -1037,6 +1112,7 @@ def construir() -> Path:
     historia += como_funciona()
     historia += la_ficha(hoy)
     historia += la_medicion()
+    historia += lo_que_cuesta_cada_acierto(hoy)
     historia += el_formulario()
     historia += lo_que_cuesta(hoy)
     historia += como_esta_hecho(hoy)
