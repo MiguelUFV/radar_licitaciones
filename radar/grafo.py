@@ -29,7 +29,7 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from radar import documentos, extraccion, llm, localizar, prompts, reglas
+from radar import documentos, empresas, extraccion, llm, localizar, prompts, reglas
 from radar.bd import cadena_conexion, conectar
 from radar.errores import DocumentoIlegible, ErrorRadar
 
@@ -335,19 +335,16 @@ def construir(checkpointer=None):
 
 
 def empresa_de(conexion, alias: str) -> dict:
-    with conexion.cursor() as cur:
-        cur.execute(
-            "SELECT alias, texto, cifra_negocio, cifra_fuente FROM perfiles WHERE alias = %s",
-            (alias,),
-        )
-        fila = cur.fetchone()
-    if not fila:
-        raise ErrorRadar(f"No hay ninguna empresa con el alias «{alias}».")
+    """Lo que el grafo necesita saber de la empresa: su texto y su cifra de negocio.
+
+    Da igual que sea un cliente o una empresa del estudio (`radar/empresas.py`).
+    """
+    empresa = empresas.la_de(conexion, alias)
     return {
-        "alias": fila[0],
-        "perfil": fila[1] or "",
-        "cifra_negocio": fila[2],
-        "cifra_fuente": fila[3],
+        "alias": empresa["alias"],
+        "perfil": empresa["texto"],
+        "cifra_negocio": empresa["cifra_negocio"],
+        "cifra_fuente": empresa["cifra_fuente"],
     }
 
 

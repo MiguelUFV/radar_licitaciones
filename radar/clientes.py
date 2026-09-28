@@ -262,6 +262,15 @@ def dar_de_alta(valores: dict) -> dict:
     for nombre in ("productos", "servicios", "no_hace", "certificaciones", "ambito"):
         fila[nombre] = fila.get(nombre) or None
     with conectar() as conexion, conexion.cursor() as cur:
+        # El alias no puede ser el de una empresa del estudio: son aliases publicados en los
+        # informes, y si coincidieran el cliente leería en su correo decisiones que no son
+        # suyas. La base lo impide también (migración 012); aquí se dice con palabras.
+        cur.execute("SELECT 1 FROM perfiles WHERE alias = %s", (valores["alias"],))
+        if cur.fetchone():
+            raise ErrorRadar(
+                f"Ya hay una empresa que se llama «{valores['alias']}» en el radar. "
+                "Hace falta otro nombre para los informes."
+            )
         cur.execute(GUARDAR, fila)
         identificador, nuevo = cur.fetchone()
         conexion.commit()

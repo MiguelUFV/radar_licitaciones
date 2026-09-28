@@ -33,3 +33,7 @@ class DocumentoIlegible(ErrorRadar):
 
 class FaltaConfiguracion(ErrorRadar):
     """Falta una variable en el fichero .env."""
+
+
+class PerfilCambiado(ErrorRadar):
+    """El texto que lee el modelo no coincide con su huella: alguien lo ha cambiado por detrás."""

@@ -22,6 +22,7 @@ import argparse
 import html
 from datetime import date
 
+from radar import empresas
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 from radar.ficha import VEREDICTOS, en_una_linea, euros, resumen_de
@@ -35,9 +36,22 @@ WHERE f.alias = %s AND f.creada_en::date = %s
 ORDER BY array_position(ARRAY['apta', 'no_apta', 'revisar'], f.veredicto), l.expediente
 """
 
+# Lo que ha costado el día **a esta empresa**. Antes esto sumaba `llm_llamadas` del día entero,
+# que con un solo cliente daba igual y con dos es sencillamente falso: cada uno veía en su pie lo
+# que habían gastado los demás. Una llamada de triaje lleva veinte licitaciones dentro, así que
+# se cuentan los identificadores distintos, no las filas.
 GASTO = """
-SELECT count(*), coalesce(sum(coste_eur), 0)
-FROM llm_llamadas WHERE llamada_en::date = %s
+WITH mias AS (
+    SELECT DISTINCT t.llm_llamada AS id
+    FROM triajes t
+    WHERE t.alias = %s AND t.triada_en::date = %s AND t.llm_llamada IS NOT NULL
+    UNION
+    SELECT DISTINCT r.llm_llamada
+    FROM requisitos r JOIN lecturas l ON l.id = r.lectura
+    WHERE l.alias = %s AND l.leida_en::date = %s AND r.llm_llamada IS NOT NULL
+)
+SELECT count(*), coalesce(sum(c.coste_eur), 0)
+FROM llm_llamadas c JOIN mias ON mias.id = c.id
 """
 
 TRIADAS = """
@@ -71,7 +85,7 @@ def numeros_del_dia(conexion, alias: str, dia: date) -> dict:
     with conexion.cursor() as cur:
         cur.execute(TRIADAS, (alias, dia))
         candidatas, triadas = cur.fetchone()
-        cur.execute(GASTO, (dia,))
+        cur.execute(GASTO, (alias, dia, alias, dia))
         llamadas, gasto = cur.fetchone()
     return {
         "triadas": triadas,
@@ -186,14 +200,13 @@ def del_correo(alias: str, dia: date | None = None) -> dict:
     """Asunto, HTML y texto del correo del día. No envía nada."""
     dia = dia or date.today()
     with conectar() as conexion:
-        with conexion.cursor() as cur:
-            cur.execute("SELECT 1 FROM perfiles WHERE alias = %s", (alias,))
-            if not cur.fetchone():
-                raise ErrorRadar(f"No hay ninguna empresa con el alias «{alias}».")
+        empresa = empresas.la_de(conexion, alias, con_candado=False)
         fichas = del_dia(conexion, alias, dia)
         numeros = numeros_del_dia(conexion, alias, dia)
     return {
         "para": alias,
+        # A dónde va. n8n no sabe de clientes: manda a la dirección que le dé el agente.
+        "destinatario": empresa["correo"],
         "fecha": dia.isoformat(),
         "asunto": asunto_de(fichas, dia),
         "html": como_html(fichas, numeros, alias, dia),

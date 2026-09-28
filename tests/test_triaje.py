@@ -15,7 +15,7 @@ import types
 
 import pytest
 
-from radar import llm, prompts, triaje
+from radar import errores, llm, prompts, triaje
 from radar.errores import ErrorRadar
 from radar.evaluacion import triaje as experimento
 
@@ -318,7 +318,7 @@ def test_un_perfil_manipulado_para_el_triaje(bd):
         with conexion.cursor() as cur:
             cur.execute("UPDATE perfiles SET texto = texto || 'y también obra civil'")
         conexion.commit()
-        with pytest.raises(triaje.PerfilCambiado) as fallo:
+        with pytest.raises(errores.PerfilCambiado) as fallo:
             triaje.perfil_de(conexion, "Empresa A")
     assert "volver a medir" in str(fallo.value)
 

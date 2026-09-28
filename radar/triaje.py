@@ -18,12 +18,11 @@ Tres reglas gobiernan este módulo:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from dataclasses import dataclass, field
 
-from radar import llm, prompts
+from radar import empresas, llm, prompts
 from radar.errores import ErrorRadar
 
 PROMPT = "triaje_v1"
@@ -43,10 +42,6 @@ class TriajeIlegible(ErrorRadar):
     """El modelo no ha devuelto un JSON del que se pueda sacar ninguna decisión."""
 
 
-class PerfilCambiado(ErrorRadar):
-    """El texto del perfil no coincide con la huella con la que se congeló."""
-
-
 @dataclass
 class Respuesta:
     """Lo que se ha entendido de una llamada de triaje."""
@@ -60,28 +55,12 @@ class Respuesta:
 
 
 def perfil_de(conexion, alias: str) -> str:
-    """El perfil congelado de una empresa, comprobando que no se ha tocado.
+    """El texto que el modelo lee de una empresa, comprobando que no se ha tocado.
 
-    El candado es el mismo que en `radar/perfiles.py`: si el texto no cuadra con su sha256, algo
-    ha cambiado después de medir y hay que volver a medir, no seguir como si nada.
+    Sirve igual para un cliente y para una empresa del estudio: quién es cada una lo decide
+    `radar/empresas.py`, que es también donde vive el candado de la huella.
     """
-    with conexion.cursor() as cur:
-        cur.execute("SELECT texto, texto_sha256 FROM perfiles WHERE alias = %s", (alias,))
-        fila = cur.fetchone()
-    if not fila:
-        raise ErrorRadar(f"No hay ninguna empresa con el alias «{alias}» en la tabla perfiles.")
-    texto, huella = fila
-    if not texto or not huella:
-        raise ErrorRadar(
-            f"El perfil de {alias} no está congelado todavía. Antes de triar nada: "
-            "uv run python -m radar.perfiles --congelar"
-        )
-    if hashlib.sha256(texto.encode("utf-8")).hexdigest() != huella:
-        raise PerfilCambiado(
-            f"El perfil de {alias} no coincide con la huella con la que se congeló. Eso obliga a "
-            "volver a medir todo lo que se haya medido con él: no se tría hasta aclararlo."
-        )
-    return texto
+    return empresas.la_de(conexion, alias)["texto"]
 
 
 def como_se_ve(licitacion: dict) -> str:

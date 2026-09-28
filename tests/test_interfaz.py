@@ -222,12 +222,22 @@ def test_el_correo_no_lleva_tipografias_externas_ni_imagenes(bd):
 
 
 def test_el_correo_dice_lo_que_ha_costado_el_dia(bd):
+    # El gasto tiene que estar atado a la empresa. Una llamada suelta, de nadie, no sale en el
+    # pie de nadie: desde que hay más de un cliente, cada uno paga lo suyo.
     with bd() as conexion:
-        montar(conexion)
+        licitacion = montar(conexion)
         with conexion.cursor() as cur:
             cur.execute(
                 "INSERT INTO llm_llamadas (nodo, modelo, coste_usd, coste_eur, tipo_cambio,"
                 " tipo_cambio_origen) VALUES ('triaje', 'claude-haiku-4-5', 0.1, 0.0870, 0.87, 'x')"
+                " RETURNING id"
+            )
+            llamada = cur.fetchone()[0]
+            cur.execute(
+                "INSERT INTO triajes (licitacion, alias, modelo, por_llamada, prompt_version,"
+                " decision, llm_llamada) VALUES (%s, 'Empresa A', 'claude-haiku-4-5', 20,"
+                " 'triaje_v1', 'si', %s)",
+                (licitacion, llamada),
             )
         conexion.commit()
     salida = correo.del_correo("Empresa A")
