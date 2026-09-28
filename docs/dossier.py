@@ -69,6 +69,7 @@ def estilos() -> dict:
     return {
         "cuerpo": base,
         "primero": ParagraphStyle("primero", parent=base, spaceBefore=2),
+        "suelto": ParagraphStyle("suelto", parent=base, alignment=0),
         "titulo": ParagraphStyle(
             "titulo",
             fontName=SERIF,
@@ -151,12 +152,24 @@ def regla(espacio_antes: float = 4, grosor: float = 0.6, color=REGLA) -> Table:
     return KeepTogether([Spacer(1, espacio_antes), t, Spacer(1, 6)])
 
 
-def tabla(filas: list[list[str]], anchos: list[float], cabecera: bool = True) -> Table:
-    """Tabla sin caja: solo una línea bajo la cabecera y otra al final. Lo demás, aire."""
-    datos = [
-        [Paragraph(c, E["nota"] if i == 0 and cabecera else E["cuerpo"]) for c in fila]
-        for i, fila in enumerate(filas)
-    ]
+def tabla(
+    filas: list[list[str]],
+    anchos: list[float],
+    cabecera: bool = True,
+    primera_suelta: bool = True,
+) -> Table:
+    """Tabla sin caja: solo una línea bajo la cabecera y otra al final. Lo demás, aire.
+
+    La primera columna nunca va justificada: es estrecha y justificar abre unos huecos entre
+    palabras que se leen fatal. `primera_suelta=False` para las pocas donde no sea así.
+    """
+
+    def estilo_de(fila: int, columna: int) -> ParagraphStyle:
+        if fila == 0 and cabecera:
+            return E["nota"]
+        return E["suelto"] if primera_suelta and columna == 0 else E["cuerpo"]
+
+    datos = [[Paragraph(c, estilo_de(i, j)) for j, c in enumerate(fila)] for i, fila in enumerate(filas)]
     t = Table(datos, colWidths=anchos, hAlign="LEFT")
     estilo = [
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -210,16 +223,89 @@ def del_radar() -> dict:
         "requisitos": "SELECT count(*) FROM requisitos",
         "verificados": "SELECT count(*) FROM requisitos WHERE verificada",
         "fichas": "SELECT count(*) FROM fichas",
+        # La última pasada de verdad, no la de hoy: un dossier generado al día siguiente diría
+        # que el radar no ha mirado nada, que es falso. Y solo de clientes, porque en la misma
+        # tabla hay triajes de las empresas del estudio, que no reciben correo de nadie.
+        "dia_pasada": ("SELECT max(t.triada_en::date) FROM triajes t JOIN clientes c ON c.alias = t.alias"),
+        "triadas_pasada": (
+            "SELECT count(*) FROM triajes t JOIN clientes c ON c.alias = t.alias"
+            " WHERE t.triada_en::date = (SELECT max(t2.triada_en::date) FROM triajes t2"
+            " JOIN clientes c2 ON c2.alias = t2.alias)"
+        ),
+        "candidatas_pasada": (
+            "SELECT count(*) FROM triajes t JOIN clientes c ON c.alias = t.alias"
+            " WHERE t.decision IN ('si', 'duda') AND t.triada_en::date ="
+            " (SELECT max(t2.triada_en::date) FROM triajes t2"
+            " JOIN clientes c2 ON c2.alias = t2.alias)"
+        ),
     }
-    datos = {}
+    # Un requisito de verdad, con su cita y su página, para no poner un ejemplo inventado en un
+    # documento que trata justamente de que nada sea inventado.
+    UNO_DE_VERDAD = """
+    SELECT r.cita, r.pagina, r.importe_eur, l.paginas_totales, li.organo, li.expediente
+    FROM requisitos r
+    JOIN lecturas l ON l.id = r.lectura
+    JOIN licitaciones li ON li.id = l.licitacion
+    WHERE r.verificada AND r.tipo = 'volumen_negocios' AND r.importe_eur IS NOT NULL
+    ORDER BY length(r.cita)
+    LIMIT 1
+    """
+    datos = {"pruebas": cuantas_pruebas()}
     try:
         with conectar() as conexion, conexion.cursor() as cur:
             for nombre, sql in consultas.items():
                 cur.execute(sql)
                 datos[nombre] = cur.fetchone()[0]
+            cur.execute(UNO_DE_VERDAD)
+            fila = cur.fetchone()
     except Exception:  # noqa: BLE001  el dossier se puede generar sin la base delante
-        return {}
+        return {"pruebas": datos["pruebas"], "sin_base": True}
+    if fila:
+        campos = ("cita", "pagina", "importe", "paginas_totales", "organo", "expediente")
+        datos["ejemplo"] = dict(zip(campos, fila, strict=True))
     return datos
+
+
+def limpia(cita: str) -> str:
+    """La cita tal cual, con los saltos de línea del PDF convertidos en espacios."""
+    sobra = "⇨→■"
+    return " ".join("".join(c for c in cita if c not in sobra).split())
+
+
+def euros(n) -> str:
+    """En castellano: el punto separa miles y la coma, decimales."""
+    return f"{float(n):,.2f}".replace(",", "@").replace(".", ",").replace("@", ".") + " €"
+
+
+def cuantas_pruebas() -> str:
+    """Las que recoge pytest, contadas de verdad.
+
+    Escrita a mano se queda vieja enseguida: en este mismo documento llegó a decir 331 en un
+    sitio y 332 en otro, con el número cambiando cada vez que se arregla un fallo.
+    """
+    import re
+    import subprocess
+    import sys
+
+    try:
+        # Con el intérprete que está corriendo, no con `uv run`: esto se lanza desde dentro de
+        # un `uv run` y anidarlos no funciona.
+        salida = subprocess.run(
+            [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "--collect-only", "-q"],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        ).stdout
+    except Exception:  # noqa: BLE001  el dossier se genera igual
+        return "todas las"
+    # Con -q, pytest escribe una línea «tests/lo_que_sea.py: N» por fichero y no el total.
+    por_fichero = [int(n) for n in re.findall(r"^\S+\.py: (\d+)$", salida, re.MULTILINE)]
+    return str(sum(por_fichero)) if por_fichero else "todas las"
+
+
+def fecha(dia) -> str:
+    """La fecha como se escribe en España. Si no hay ninguna pasada todavía, se dice."""
+    return f"{dia:%d-%m-%Y}" if dia else "(sin ninguna pasada todavía)"
 
 
 def miles(n) -> str:
@@ -230,8 +316,21 @@ def miles(n) -> str:
 
 
 def portada(hoy: dict) -> list:
-    cuerpo = [
-        Spacer(1, 26 * mm),
+    numeros = (
+        [
+            ["Lo que hay dentro", ""],
+            ["Expedientes cargados de la Plataforma de Contratación", miles(hoy.get("expedientes", 0))],
+            ["Adjudicaciones con su ganador", miles(hoy.get("adjudicaciones", 0))],
+            ["Pliegos descargados y guardados por su huella", miles(hoy.get("pliegos", 0))],
+            ["Requisitos extraídos con cita comprobada", miles(hoy.get("verificados", 0))],
+            ["Pruebas automáticas que lo vigilan", hoy.get("pruebas", "")],
+            ["Gastado en el modelo desde el primer día", euros(hoy.get("gasto", 0))],
+        ]
+        if not hoy.get("sin_base")
+        else [["Lo que hay dentro", ""], ["(la base no respondió al generar el PDF)", ""]]
+    )
+    return [
+        Spacer(1, 10 * mm),
         p("Radar de licitaciones<br/>que lee el pliego", "titulo"),
         p(
             "Un agente que mira cada día las licitaciones públicas que se publican en España, abre "
@@ -240,36 +339,38 @@ def portada(hoy: dict) -> list:
             "subtitulo",
         ),
         regla(0, 1.2, TINTA),
-        Spacer(1, 4),
-    ]
-    numeros = (
-        [
-            ["Lo que hay dentro", ""],
-            ["Expedientes cargados de la Plataforma de Contratación", miles(hoy.get("expedientes", 0))],
-            ["Adjudicaciones con su ganador", miles(hoy.get("adjudicaciones", 0))],
-            ["Pliegos descargados y guardados por su huella", miles(hoy.get("pliegos", 0))],
-            ["Requisitos extraídos con cita verificada", miles(hoy.get("verificados", 0))],
-            ["Gastado en el modelo desde el primer día", f"{hoy.get('gasto', 0)} €"],
-        ]
-        if hoy
-        else [["Lo que hay dentro", ""], ["(la base no estaba disponible al generar el PDF)", ""]]
-    )
-    cuerpo += [
-        tabla(numeros, [MEDIDA - 30 * mm, 30 * mm]),
-        Spacer(1, 16),
+        Spacer(1, 6),
+        p(
+            "Este documento explica qué hace, cómo lo hace y qué se midió. Está escrito para "
+            "alguien que no ha visto nunca el proyecto. Todas las cifras salen de una medición "
+            "que se puede repetir con un comando, y las que salieron en contra de la tesis "
+            "también están aquí.",
+        ),
+        Spacer(1, 74 * mm),
+        tabla(numeros, [MEDIDA - 32 * mm, 32 * mm]),
+        Spacer(1, 12),
         p(
             "Miguel Martín-Caro · 4.º del doble grado en Business Analytics y ADE, "
             "Universidad Francisco de Vitoria<br/>"
-            f"Documento generado el {date.today():%d-%m-%Y} a partir de los informes de medición "
-            "y de la base de datos del proyecto",
+            f"Generado el {date.today():%d-%m-%Y} a partir de los informes de medición y de la "
+            "base de datos del proyecto",
             "nota",
         ),
         PageBreak(),
     ]
-    return cuerpo
 
 
-def el_problema() -> list:
+SIN_EJEMPLO = {
+    "cita": "(no hay ningún requisito leído todavía en esta base de datos)",
+    "pagina": "—",
+    "paginas_totales": "—",
+    "organo": "—",
+    "expediente": "—",
+}
+
+
+def el_problema(hoy: dict) -> list:
+    ejemplo = hoy.get("ejemplo") or SIN_EJEMPLO
     return [
         p("1. El problema, con números", "seccion"),
         p(
@@ -298,15 +399,21 @@ def el_problema() -> list:
             "concurso: quién puede presentarse, qué hay que acreditar y cómo se valora. Es donde "
             "está la frase que decide si una empresa puede o no puede presentarse, del tipo:"
         ),
+        p(f"«{limpia(ejemplo['cita'])}»", "cita"),
         p(
-            "«El volumen anual de negocios referido al mejor ejercicio dentro de los tres últimos "
-            "disponibles deberá ser, al menos, de 93.000 euros.»",
-            "cita",
+            f"Página {ejemplo['pagina']} de {ejemplo['paginas_totales']} · "
+            f"{ejemplo['organo']} · expediente {ejemplo['expediente']}",
+            "nota",
         ),
         p(
-            "Una empresa que facture 600.000 € cumple; una que facture 50.000 € no. El radar busca "
-            "esa frase, la copia literal, apunta en qué página estaba y compara los dos números. "
-            "Ni resume, ni interpreta, ni redondea.",
+            "Esa cita no es un ejemplo inventado para este documento: es de un pliego que el "
+            "radar ha leído, está guardada en la base de datos y se puede comprobar abriendo ese "
+            "PDF por esa página."
+        ),
+        p(
+            "Una empresa que facture más de esa cifra cumple; una que facture menos, no. El radar "
+            "busca esa frase, la copia literal, apunta en qué página estaba y compara los dos "
+            "números. Ni resume, ni interpreta, ni redondea.",
         ),
     ]
 
@@ -370,7 +477,7 @@ def como_funciona() -> list:
             "primero",
         ),
         Spacer(1, 4),
-        tabla(pasos, [24 * mm, MEDIDA - 24 * mm - 32 * mm, 32 * mm]),
+        tabla(pasos, [30 * mm, MEDIDA - 30 * mm - 30 * mm, 30 * mm]),
         p("La regla de oro: el modelo extrae, el programa decide", "sub"),
         p(
             "Esta separación es la decisión más importante del proyecto. Un modelo de lenguaje es "
@@ -397,7 +504,7 @@ def como_funciona() -> list:
     ]
 
 
-def la_ficha() -> list:
+def la_ficha(hoy: dict) -> list:
     return [
         p("3. Lo que recibe la empresa", "seccion"),
         p(
@@ -409,14 +516,21 @@ def la_ficha() -> list:
         ),
         Spacer(1, 2),
         p(
-            "Radar de licitaciones · Empresa del Norte · 28-09-2026<br/><br/>"
+            f"Radar de licitaciones · Empresa del Norte · {fecha(hoy.get('dia_pasada'))}<br/><br/>"
             "&mdash; PUEDE PRESENTARSE<br/>"
             "&nbsp;&nbsp;Suministro de licencias de software<br/>"
             "&nbsp;&nbsp;Ayuntamiento de ejemplo · expediente 2026/1<br/>"
             "&nbsp;&nbsp;De 1 requisito leído del pliego: 1 cumple.<br/><br/>"
-            "Se han mirado 400 licitaciones, 26 pasaron el primer filtro.<br/>"
+            f"Se han mirado {hoy.get('triadas_pasada', 0)} licitaciones, "
+            f"{hoy.get('candidatas_pasada', 0)} pasaron el primer filtro.<br/>"
             "El radar lee el pliego y cita lo que dice. La decisión de presentarse es tuya.",
             "codigo",
+        ),
+        p(
+            "Las dos cifras del pie son las de la última pasada de verdad; la licitación del "
+            "ejemplo está inventada para enseñar el formato, y por eso el órgano se llama "
+            "«Ayuntamiento de ejemplo».",
+            "nota",
         ),
         p(
             "Detrás de cada línea hay una ficha con los requisitos encontrados. Cada uno lleva tres "
@@ -598,7 +712,7 @@ def lo_que_cuesta(hoy: dict) -> list:
                 ["Un día de trabajo de una empresa con tope de 1 €", "hasta 11 pliegos leídos"],
                 [
                     "<b>Todo el proyecto, desde el primer día</b>",
-                    f"<b>{hoy.get('gasto', 0)} € en {miles(hoy.get('llamadas', 0))} llamadas</b>",
+                    f"<b>{euros(hoy.get('gasto', 0))} en {miles(hoy.get('llamadas', 0))} llamadas</b>",
                 ],
             ],
             [MEDIDA - 42 * mm, 42 * mm],
@@ -662,10 +776,11 @@ def como_esta_hecho(hoy: dict) -> list:
         ),
         p("Cómo se comprueba que no está roto", "sub"),
         p(
-            "Hay <b>331 pruebas automáticas</b>, y la regla al arreglar un fallo es siempre la "
-            "misma: primero se escribe la prueba que falla por ese fallo, se comprueba que está en "
-            "rojo, y solo entonces se arregla. El mensaje del commit dice qué fallaba y cómo se "
-            "demostró, no solo qué se cambió."
+            f"Hay <b>{hoy.get('pruebas', 'todas las')} pruebas automáticas</b>, y la regla al "
+            "arreglar un fallo es siempre la misma: primero se escribe la prueba que falla por "
+            "ese fallo, se comprueba "
+            "que está en rojo, y solo entonces se arregla. El mensaje del commit dice qué fallaba "
+            "y cómo se demostró, no solo qué se cambió."
         ),
         p(
             "Además hay una matriz de fallos escrita de antemano —qué debe pasar si el PC está "
@@ -836,6 +951,64 @@ def el_cierre() -> list:
     ]
 
 
+def como_se_pone_en_marcha() -> list:
+    return [
+        p("11. Cómo se pone en marcha", "seccion"),
+        p(
+            "Todo arranca con tres contenedores —la base de datos, el orquestador y el propio "
+            "radar— y se maneja con comandos que se pueden leer. Ninguno de ellos gasta dinero "
+            "salvo el que lo dice.",
+            "primero",
+        ),
+        Spacer(1, 2),
+        p(
+            "docker compose up -d<br/>"
+            "uv run python -m radar.diagnostico&nbsp;&nbsp;&nbsp;&nbsp;# ¿está todo en su sitio?<br/>"
+            "uv run python -m radar.ingesta --paginas 10<br/>"
+            "uv run python -m radar.diario&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+            "&nbsp;&nbsp;&nbsp;&nbsp;# qué haría hoy y qué costaría<br/>"
+            "uv run python -m radar.diario --gastar&nbsp;&nbsp;# hacerlo<br/>"
+            "uv run pytest&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+            "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# todas las pruebas",
+            "codigo",
+        ),
+        p(
+            "El comando sin <b>--gastar</b> no llama al modelo: dice cuántas licitaciones hay por "
+            "mirar, cuántos pliegos se podrían abrir con lo que queda del tope y cuánto costaría "
+            "cada uno. Que la opción por defecto sea la que no gasta no es un detalle: es la "
+            "misma idea que recorre el proyecto entero, que una cosa que cuesta dinero se hace a "
+            "propósito y no por descuido.",
+        ),
+    ]
+
+
+def en_que_punto_esta(hoy: dict) -> list:
+    return [
+        p("12. En qué punto está", "seccion"),
+        p(
+            "Las siete fases de construcción están cerradas, cada una con su informe y con el "
+            "comando que reproduce sus cifras. El trabajo diario por cliente funciona de punta a "
+            f"punta: la última pasada real trió <b>{hoy.get('triadas_pasada', 0)} licitaciones</b> "
+            f"publicadas y dejó <b>{hoy.get('candidatas_pasada', 0)} candidatas</b>, y hay una prueba "
+            "automática que recorre la cadena entera —alta de la empresa, triaje, pliego en PDF, "
+            "comprobación de la cita, ficha y correo— sin saltarse ningún paso.",
+            "primero",
+        ),
+        p(
+            "Lo que falta no es código: es tiempo. La prueba de que esto aguanta son cinco días "
+            "laborables seguidos recibiendo el correo de la mañana, y eso solo se consigue "
+            "esperando cinco días.",
+        ),
+        regla(6),
+        p(
+            "El código está en un repositorio con todo el historial: los informes de cada fase, "
+            "las decisiones técnicas con su motivo, los documentos de método congelados antes de "
+            "medir y los commits que demuestran que se congelaron antes.",
+            "nota",
+        ),
+    ]
+
+
 def construir() -> Path:
     hoy = del_radar()
     documento = BaseDocTemplate(
@@ -854,18 +1027,18 @@ def construir() -> Path:
 
     historia = []
     historia += portada(hoy)
-    historia += el_problema()
+    historia += el_problema(hoy)
     historia += como_funciona()
-    historia += la_ficha()
-    historia += [PageBreak()]
+    historia += la_ficha(hoy)
     historia += la_medicion()
     historia += el_formulario()
     historia += lo_que_cuesta(hoy)
-    historia += [PageBreak()]
     historia += como_esta_hecho(hoy)
     historia += los_fallos()
     historia += los_limites()
     historia += el_cierre()
+    historia += como_se_pone_en_marcha()
+    historia += en_que_punto_esta(hoy)
     documento.build(historia)
     return SALIDA
 

@@ -213,8 +213,15 @@ El formulario es el arreglo que señalaba esa medición.
 2. ~~**Leer los pliegos en el trabajo diario.**~~ Hecho el 28-09-2026, cortando por el
    `tope_diario_eur` de cada cliente (D41). Antes de abrir un pliego se comprueba que lo que queda
    del tope cubre la reserva, que sale del percentil 90 de lo que han costado los ya leídos.
-   **Sigue sin ejecutarse una pasada de pago:** está probado con la API del modelo falseada, y la
-   primera mañana de verdad todavía no se ha lanzado.
+   **Lanzada de verdad el 28-09-2026.** Se ingirieron 2.086 licitaciones nuevas del feed, se
+   triaron las 400 más próximas a vencer y salieron 37 candidatas, por 0,1377 €. Se bajaron sus
+   pliegos y, al abrir el primero, **la cuenta de Anthropic se quedó sin saldo**. Las cuatro
+   lecturas fallaron en el conteo de tokens, que es gratis, así que no se pagó nada por ellas, y
+   la mañana no se cayó: cada fallo quedó en `incidencias` con su traza y el resumen lo dijo.
+
+   Queda pendiente, y no depende del código: **añadir saldo y volver a lanzar
+   `radar.diario --gastar`**. Las 37 candidatas siguen sin ficha, así que la siguiente pasada las
+   coge donde se quedaron; el triaje no se repite ni se vuelve a pagar.
 3. **Que el formulario lo rellene la empresa, no Miguel.** Eso ya no es este proyecto: necesita
    alojamiento, autenticación y una política de datos. Hoy escucha solo en el ordenador, como todo
    lo demás (SPEC §9).
