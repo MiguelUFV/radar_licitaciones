@@ -25,20 +25,21 @@ from datetime import date
 from radar import empresas
 from radar.bd import conectar
 from radar.errores import ErrorRadar
+from radar.fechas import el_dia, hoy
 from radar.ficha import VEREDICTOS, en_una_linea, euros, resumen_de
 
-DEL_DIA = """
+DEL_DIA = f"""
 SELECT f.licitacion, f.veredicto, f.motivos, l.expediente, l.objeto, l.organo,
        l.importe_sin_iva, l.plazo_presentacion
 FROM fichas f
 JOIN licitaciones l ON l.id = f.licitacion
-WHERE f.alias = %s AND f.creada_en::date = %s
+WHERE f.alias = %s AND {el_dia("f.creada_en")} = %s
 ORDER BY array_position(ARRAY['apta', 'no_apta', 'revisar'], f.veredicto), l.expediente
 """
 
-TRIADAS = """
+TRIADAS = f"""
 SELECT count(*) FILTER (WHERE decision IN ('si', 'duda')), count(*)
-FROM triajes WHERE alias = %s AND triada_en::date = %s
+FROM triajes WHERE alias = %s AND {el_dia("triada_en")} = %s
 """
 
 # Los mismos papeles que en la ficha: la cita es la voz del pliego, el resto la del radar.
@@ -179,7 +180,7 @@ def como_html(fichas: list[dict], numeros: dict, alias: str, dia: date) -> str:
 
 def del_correo(alias: str, dia: date | None = None) -> dict:
     """Asunto, HTML y texto del correo del día. No envía nada."""
-    dia = dia or date.today()
+    dia = dia or hoy()
     with conectar() as conexion:
         empresa = empresas.la_de(conexion, alias, con_candado=False)
         fichas = del_dia(conexion, alias, dia)

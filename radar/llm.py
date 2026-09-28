@@ -24,12 +24,13 @@ import os
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import date
 
 from dotenv import load_dotenv
 
+from radar import fechas
 from radar.bd import conectar
 from radar.errores import ErrorRadar, FaltaConfiguracion
+from radar.fechas import el_dia
 
 # USD por millón de tokens y qué admite cada modelo.
 #
@@ -196,7 +197,7 @@ def tipo_de_cambio() -> tuple[float, str]:
     """
     try:
         with conectar() as conexion, conexion.cursor() as cur:
-            cur.execute("SELECT usd_eur, origen FROM tipos_cambio WHERE fecha = %s", (date.today(),))
+            cur.execute("SELECT usd_eur, origen FROM tipos_cambio WHERE fecha = %s", (fechas.hoy(),))
             fila = cur.fetchone()
             if fila:
                 return float(fila[0]), fila[1]
@@ -228,7 +229,7 @@ def gastado_hoy(conexion) -> float:
     with conexion.cursor() as cur:
         cur.execute(
             "SELECT coalesce(sum(coste_eur), 0) FROM llm_llamadas"
-            " WHERE llamada_en >= date_trunc('day', now())"
+            f" WHERE {el_dia('llamada_en')} = {el_dia('now()')}"
         )
         return float(cur.fetchone()[0])
 

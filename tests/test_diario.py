@@ -819,3 +819,37 @@ def test_si_la_plataforma_no_contesta_se_leen_los_pliegos_que_ya_estan(bd, entor
         with conexion.cursor() as cur:
             cur.execute("SELECT count(*) FROM incidencias WHERE nodo = 'diario'")
             assert cur.fetchone()[0] == 1
+
+
+# --- 9. El día del radar es el día en España ------------------------------------------
+
+
+def test_lo_gastado_de_madrugada_cuenta_en_el_dia_espanol(bd, entorno):
+    """La base guarda las horas en UTC y el radar corre en hora española.
+
+    Entre medianoche y las dos de la mañana no son el mismo día: a las 00:30 en Madrid, en la
+    base son las 22:30 del día anterior. Comparando el día de Python con el día de la base, el
+    radar veía cero euros gastados con el tope recién agotado, y **un cliente podía gastarse su
+    tope dos veces**. Se vio el 29-09-2026, cuando cambió la fecha a mitad de sesión y cuatro
+    pruebas se pusieron en rojo solas.
+    """
+    clientes.dar_de_alta(CLIENTE)
+    with bd() as conexion:
+        una = licitacion(conexion, 1)
+        conexion.commit()
+        triar_a_mano(conexion, "Empresa del Norte", [una])
+        with conexion.cursor() as cur:
+            cur.execute(
+                "INSERT INTO llm_llamadas (nodo, modelo, coste_usd, coste_eur, tipo_cambio,"
+                " tipo_cambio_origen) VALUES ('triaje', 'claude-haiku-4-5', 0.5, 0.5, 1, 'x')"
+                " RETURNING id"
+            )
+            llamada = cur.fetchone()[0]
+            # 22:30 UTC del día 28 es la 00:30 del día 29 en Madrid.
+            cur.execute(
+                "UPDATE triajes SET llm_llamada = %s, triada_en = '2026-09-28 22:30:00+00'",
+                (llamada,),
+            )
+        conexion.commit()
+        _, gastado = empresas.gastado_hoy(conexion, "Empresa del Norte", date(2026, 9, 29))
+    assert gastado == 0.5, "lo gastado a las 00:30 en Madrid es gasto de ese día, no del anterior"

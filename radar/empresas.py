@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 
 from radar.errores import ErrorRadar, PerfilCambiado
+from radar.fechas import el_dia
 
 DEL_ESTUDIO = """
 SELECT alias, texto, texto_sha256, cifra_negocio, cifra_fuente
@@ -122,15 +123,15 @@ def activas(conexion) -> list[dict]:
 # Lo que ha costado un día **a una empresa**. Una llamada de triaje lleva veinte licitaciones
 # dentro, así que se cuentan identificadores distintos y no filas: contar filas fue el fallo
 # del 27-09-2026, que multiplicaba por veinte el coste de cada triaje.
-GASTO = """
+GASTO = f"""
 WITH mias AS (
     SELECT DISTINCT t.llm_llamada AS id
     FROM triajes t
-    WHERE t.alias = %s AND t.triada_en::date = %s AND t.llm_llamada IS NOT NULL
+    WHERE t.alias = %s AND {el_dia("t.triada_en")} = %s AND t.llm_llamada IS NOT NULL
     UNION
     SELECT DISTINCT r.llm_llamada
     FROM requisitos r JOIN lecturas l ON l.id = r.lectura
-    WHERE l.alias = %s AND l.leida_en::date = %s AND r.llm_llamada IS NOT NULL
+    WHERE l.alias = %s AND {el_dia("l.leida_en")} = %s AND r.llm_llamada IS NOT NULL
 )
 SELECT count(*), coalesce(sum(c.coste_eur), 0)
 FROM llm_llamadas c JOIN mias ON mias.id = c.id

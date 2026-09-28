@@ -9,7 +9,7 @@ import types
 import psycopg
 import pytest
 
-from radar import llm
+from radar import fechas, llm
 from radar.errores import ErrorRadar, FaltaConfiguracion
 
 CAMBIO = 0.87
@@ -211,7 +211,10 @@ def test_un_esfuerzo_inventado_se_rechaza(bd, entorno):
 def test_el_tipo_de_cambio_de_la_base_manda_sobre_el_de_env(bd, entorno):
     with bd() as conexion, conexion.cursor() as cur:
         cur.execute(
-            "INSERT INTO tipos_cambio (fecha, usd_eur, origen) VALUES (current_date, 0.9, 'BCE del dia')"
+            # Con el día español, no con el de la base: son distintos entre medianoche y las
+            # dos de la mañana, y ese desfase valía para que el radar no viera lo ya gastado.
+            "INSERT INTO tipos_cambio (fecha, usd_eur, origen) VALUES (%s, 0.9, 'BCE del dia')",
+            (fechas.hoy(),),
         )
         conexion.commit()
     cambio, origen = llm.tipo_de_cambio()

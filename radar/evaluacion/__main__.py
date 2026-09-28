@@ -11,9 +11,9 @@ métrica falta, el informe lo dice en lugar de dejar el hueco.
 from __future__ import annotations
 
 import argparse
-from datetime import date
 from pathlib import Path
 
+from radar import fechas
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 
@@ -200,7 +200,7 @@ def escribir(filas: list[dict], destino: Path = DESTINO, perdidos: list | None =
         "uv run python -m radar.evaluacion --informe",
         "```",
         "",
-        f"Regenerado el {date.today().strftime('%d-%m-%Y')} desde la tabla `eval_resultados`, sin",
+        f"Regenerado el {fechas.hoy().strftime('%d-%m-%Y')} desde la tabla `eval_resultados`, sin",
         "llamar a la API. El procedimiento estaba congelado antes de medir en",
         "`docs/PLAN_MEDICION.md`; los criterios, en `docs/SPEC.md` §6.",
         "",

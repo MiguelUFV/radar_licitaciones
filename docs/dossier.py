@@ -16,7 +16,6 @@ para funcionar. Se trae solo cuando se genera el dossier.
 
 from __future__ import annotations
 
-from datetime import date
 from pathlib import Path
 
 from reportlab.lib import colors
@@ -35,6 +34,9 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+
+from radar.fechas import el_dia
+from radar.fechas import hoy as hoy_en_espana
 
 SALIDA = Path("docs/dossier_radar_de_licitaciones.pdf")
 
@@ -209,13 +211,18 @@ def del_radar() -> dict:
         from radar.bd import conectar
     except Exception:  # noqa: BLE001
         return {}
+    # El día de la última pasada de un cliente, en hora española. Se usa dos veces, así que
+    # se escribe una.
+    ULTIMA_PASADA = (
+        f"SELECT max({el_dia('t2.triada_en')}) FROM triajes t2 JOIN clientes c2 ON c2.alias = t2.alias"
+    )
     consultas = {
         "licitaciones": "SELECT count(*) FROM licitaciones",
         "expedientes": "SELECT count(DISTINCT entry_id) FROM licitaciones",
         "adjudicaciones": "SELECT count(*) FROM adjudicaciones",
         "vigentes": (
-            "SELECT count(*) FROM v_licitaciones_vigentes WHERE NOT anulada"
-            " AND (plazo_presentacion IS NULL OR plazo_presentacion >= current_date)"
+            f"SELECT count(*) FROM v_licitaciones_vigentes WHERE NOT anulada"
+            f" AND (plazo_presentacion IS NULL OR plazo_presentacion >= {el_dia('now()')})"
         ),
         "pliegos": "SELECT count(*) FROM documentos WHERE estado_descarga = 'descargado'",
         "llamadas": "SELECT count(*) FROM llm_llamadas",
@@ -226,17 +233,16 @@ def del_radar() -> dict:
         # La última pasada de verdad, no la de hoy: un dossier generado al día siguiente diría
         # que el radar no ha mirado nada, que es falso. Y solo de clientes, porque en la misma
         # tabla hay triajes de las empresas del estudio, que no reciben correo de nadie.
-        "dia_pasada": ("SELECT max(t.triada_en::date) FROM triajes t JOIN clientes c ON c.alias = t.alias"),
+        "dia_pasada": (
+            f"SELECT max({el_dia('t.triada_en')}) FROM triajes t JOIN clientes c ON c.alias = t.alias"
+        ),
         "triadas_pasada": (
-            "SELECT count(*) FROM triajes t JOIN clientes c ON c.alias = t.alias"
-            " WHERE t.triada_en::date = (SELECT max(t2.triada_en::date) FROM triajes t2"
-            " JOIN clientes c2 ON c2.alias = t2.alias)"
+            f"SELECT count(*) FROM triajes t JOIN clientes c ON c.alias = t.alias"
+            f" WHERE {el_dia('t.triada_en')} = ({ULTIMA_PASADA})"
         ),
         "candidatas_pasada": (
-            "SELECT count(*) FROM triajes t JOIN clientes c ON c.alias = t.alias"
-            " WHERE t.decision IN ('si', 'duda') AND t.triada_en::date ="
-            " (SELECT max(t2.triada_en::date) FROM triajes t2"
-            " JOIN clientes c2 ON c2.alias = t2.alias)"
+            f"SELECT count(*) FROM triajes t JOIN clientes c ON c.alias = t.alias"
+            f" WHERE t.decision IN ('si', 'duda') AND {el_dia('t.triada_en')} = ({ULTIMA_PASADA})"
         ),
     }
     # Un requisito de verdad, con su cita y su página, para no poner un ejemplo inventado en un
@@ -352,7 +358,7 @@ def portada(hoy: dict) -> list:
         p(
             "Miguel Martín-Caro · 4.º del doble grado en Business Analytics y ADE, "
             "Universidad Francisco de Vitoria<br/>"
-            f"Generado el {date.today():%d-%m-%Y} a partir de los informes de medición y de la "
+            f"Generado el {hoy_en_espana():%d-%m-%Y} a partir de los informes de medición y de la "
             "base de datos del proyecto",
             "nota",
         ),

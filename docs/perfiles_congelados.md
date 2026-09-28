@@ -13,7 +13,7 @@ después de publicar una medición.
 |---|---|---|---|---|
 | Empresa A | desarrollo | 2 | 2026-09-28 | `11fe4ea851d94187d03d99e299fec46dc956ba322a202fb005c7e94370a72274` |
 
-Generado por `radar/perfiles.py` el 2026-09-28.
+Generado por `radar/perfiles.py` el 2026-09-29.
 
 Para comprobar uno:
 

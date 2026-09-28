@@ -183,6 +183,9 @@ flowchart TD
   los pliegos ya leídos), pero el coste real no se sabe hasta haberlo leído: un pliego más caro
   que la reserva se pasa del tope por esa diferencia. No se corta a mitad de un pliego a
   propósito: dejar una lectura pagada a medias sería peor que pasarse unos céntimos.
+- **El día del radar es el día en España** (D43). Si algún día el radar se despliega fuera de
+  España o para una empresa en otro huso, el tope diario y el correo seguirán cortando por la
+  medianoche española, que entonces ya no será la suya.
 - **Una lectura cortada a la mitad se vuelve a pagar entera.** Cada análisis de un pliego empieza
   de cero para no repetir requisitos (D42), así que si el proceso se cae leyendo, la siguiente
   pasada repite la extracción. Cuesta unos céntimos y solo pasa cuando algo se ha caído.

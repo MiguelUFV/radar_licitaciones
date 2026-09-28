@@ -422,3 +422,25 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
   cliente. El paso a paso se sigue guardando, que es para lo que está (D04).
 - **En los tests:** las tablas del checkpointer no son del radar y las migraciones no las tocan,
   así que la fixture `bd` las vacía también. Si no, el estado de un test entra en el siguiente.
+
+## D43 · El día del radar es el día en España, en Python y en SQL
+- **El fallo, del 29-09-2026:** la base corre en UTC (`Etc/UTC` dentro de Docker) y el radar
+  trabaja en hora española. Entre medianoche y las dos de la mañana no están en el mismo día: a
+  las 00:26 en Madrid, `date.today()` de Python decía 29-09 y `current_date` de la base decía
+  28-09. Se vio solo porque la fecha cambió a mitad de sesión y **cuatro pruebas se pusieron en
+  rojo sin que nadie hubiera tocado nada**.
+- **Por qué importa, y no es cosmético:** el tope diario de cada cliente se calcula sumando lo
+  que ha gastado «hoy». Con los dos relojes en días distintos, `gastado_hoy` devolvía cero euros
+  con el tope recién agotado, así que **un cliente podía gastarse su tope dos veces** con solo
+  lanzar el trabajo de madrugada. El mismo desfase dejaba el correo de la mañana sin las fichas
+  del día y colaba en el triaje licitaciones con el plazo ya vencido.
+- **Decisión:** una sola definición de «hoy», en `radar/fechas.py`. `hoy()` para Python y
+  `el_dia("columna")` para las consultas, que envuelve la columna en `AT TIME ZONE
+  'Europe/Madrid'`. La misma zona que ya usaba el reloj de n8n.
+- **Dónde se aplica:** el gasto por empresa (`radar/empresas.py`), el presupuesto global
+  (`radar/llm.py`), el correo del día, el plazo de presentación en el trabajo diario y el estado.
+  Los intervalos relativos —«ejecuciones de hace más de dos horas», «incidencias de los últimos
+  siete días»— se quedan como estaban: no comparan días.
+- **Lo que enseña:** la prueba que lo cazó no la escribió nadie. La escribió el calendario. Por
+  eso ahora hay una que fija la hora a mano (22:30 UTC = 00:30 en Madrid) y no depende de cuándo
+  se ejecute.

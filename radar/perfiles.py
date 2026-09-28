@@ -15,9 +15,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import re
-from datetime import date
 from pathlib import Path
 
+from radar import fechas
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 
@@ -175,7 +175,7 @@ def escribir_registro(conexion, destino: Path = PUBLICO) -> str:
         lineas.append(f"| {alias} | {rol} | {fuentes} | {cuando or '(sin congelar)'} | `{huella or '—'}` |")
     lineas += [
         "",
-        f"Generado por `radar/perfiles.py` el {date.today().isoformat()}.",
+        f"Generado por `radar/perfiles.py` el {fechas.hoy().isoformat()}.",
         "",
         "Para comprobar uno:",
         "",

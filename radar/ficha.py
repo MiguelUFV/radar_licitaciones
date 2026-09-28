@@ -23,9 +23,9 @@ from __future__ import annotations
 
 import argparse
 import html
-from datetime import date
 from pathlib import Path
 
+from radar import fechas
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 
@@ -299,7 +299,7 @@ def generar(licitacion: int, alias: str, destino: Path | None = None) -> Path:
         d = datos(conexion, licitacion, alias)
     carpeta = destino or SALIDA
     carpeta.mkdir(parents=True, exist_ok=True)
-    nombre = f"{date.today().isoformat()}_{licitacion}_{alias.replace(' ', '_').lower()}.html"
+    nombre = f"{fechas.hoy().isoformat()}_{licitacion}_{alias.replace(' ', '_').lower()}.html"
     fichero = carpeta / nombre
     fichero.write_text(como_html(d, alias), encoding="utf-8")
     return fichero

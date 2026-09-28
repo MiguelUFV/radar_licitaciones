@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from radar import llm, personas
 from radar.bd import conectar
 from radar.errores import ErrorRadar
+from radar.fechas import el_dia
 
 VENTANA = ("2025-01", "2025-06")
 POSTERIORES = ("2025-07", "2026-08")
@@ -106,7 +107,7 @@ def informe() -> str:
             )
             cur.execute(
                 "SELECT count(*), coalesce(sum(coste_eur), 0) FROM llm_llamadas"
-                " WHERE llamada_en >= date_trunc('day', now())"
+                f" WHERE {el_dia('llamada_en')} = {el_dia('now()')}"
             )
             llamadas, gastado = cur.fetchone()
             try:

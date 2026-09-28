@@ -33,6 +33,7 @@ from datetime import date
 from radar import empresas, incidencias, llm, pliegos, prompts, triaje
 from radar.bd import conectar
 from radar.errores import ErrorRadar
+from radar.fechas import el_dia, hoy
 from radar.grafo import analizar, checkpointer_de_postgres, coste_de
 from radar.ingesta import abrir_ejecucion, cerrar_ejecucion
 
@@ -55,11 +56,11 @@ RESERVA_INICIAL = 0.15
 # consulta ordenaba primero por `entry_id` —se lo pedía el `DISTINCT ON`— y el `LIMIT` se
 # quedaba con las 400 primeras por identificador, que es un orden sin ningún sentido para quien
 # tiene que presentarse. La vista ya trae una fila por expediente, así que el `DISTINCT` sobraba.
-SIN_TRIAR = """
+SIN_TRIAR = f"""
 SELECT v.id, v.entry_id, v.objeto, v.organo, v.cpv, v.tipo_contrato
 FROM v_licitaciones_vigentes v
 WHERE NOT v.anulada
-  AND (v.plazo_presentacion IS NULL OR v.plazo_presentacion >= current_date)
+  AND (v.plazo_presentacion IS NULL OR v.plazo_presentacion >= {el_dia("now()")})
   AND NOT EXISTS (
       SELECT 1 FROM triajes t JOIN licitaciones l ON l.id = t.licitacion
       WHERE t.alias = %s AND l.entry_id = v.entry_id
@@ -70,7 +71,7 @@ LIMIT %s
 
 # Lo que el triaje dejó pasar y todavía no tiene ficha. Se pide el pliego descargado aquí y no
 # dentro del grafo para no pagar el arranque de un expediente del que no hay nada que leer.
-SIN_FICHA = """
+SIN_FICHA = f"""
 SELECT id, expediente, objeto, plazo
 FROM (
     SELECT DISTINCT ON (v.entry_id)
@@ -83,7 +84,7 @@ FROM (
     WHERE t.alias = %s
       AND t.decision = ANY(%s)
       AND NOT v.anulada
-      AND (v.plazo_presentacion IS NULL OR v.plazo_presentacion >= current_date)
+      AND (v.plazo_presentacion IS NULL OR v.plazo_presentacion >= {el_dia("now()")})
       AND NOT EXISTS (
           SELECT 1 FROM fichas f JOIN licitaciones fl ON fl.id = f.licitacion
           WHERE f.alias = %s AND fl.entry_id = v.entry_id
@@ -371,7 +372,7 @@ def la_manana_de(conexion, empresa: dict, run_id, dia: date, guardado) -> dict:
 
 def del_dia(alias: str | None = None, gastar: bool = False, dia: date | None = None) -> dict:
     """El trabajo de la mañana, de un cliente o de todos los activos."""
-    dia = dia or date.today()
+    dia = dia or hoy()
     with conectar() as conexion:
         lista = a_quien_toca(conexion, alias)
         if not gastar:
