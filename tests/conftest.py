@@ -48,6 +48,11 @@ TABLAS = [
 ]
 
 
+# Tablas del checkpointer de LangGraph. Las crea la librería, no las migraciones, así que
+# puede que no existan todavía.
+DE_LANGGRAPH = ["checkpoints", "checkpoint_writes", "checkpoint_blobs", "checkpoint_migrations"]
+
+
 def entrada_real() -> str:
     return (FIXTURES / "entrada_real.xml").read_text(encoding="utf-8")
 
@@ -110,6 +115,13 @@ def bd(monkeypatch):
     aplicar_migraciones()
     with conectar() as conexion, conexion.cursor() as cur:
         cur.execute(f"TRUNCATE {', '.join(TABLAS)} RESTART IDENTITY CASCADE")
+        # Las del checkpointer de LangGraph no son nuestras, pero si se quedan de un test al
+        # siguiente el grafo reanuda un expediente ya leido y suma sus requisitos a los de
+        # antes. Pasó el 28-09-2026: la misma prueba daba 3 requisitos y a la siguiente 4.
+        for tabla in DE_LANGGRAPH:
+            cur.execute("SELECT to_regclass(%s)", (tabla,))
+            if cur.fetchone()[0]:
+                cur.execute(f"TRUNCATE {tabla} CASCADE")
         conexion.commit()
     yield conectar
 

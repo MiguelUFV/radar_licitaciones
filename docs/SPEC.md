@@ -183,6 +183,9 @@ flowchart TD
   los pliegos ya leídos), pero el coste real no se sabe hasta haberlo leído: un pliego más caro
   que la reserva se pasa del tope por esa diferencia. No se corta a mitad de un pliego a
   propósito: dejar una lectura pagada a medias sería peor que pasarse unos céntimos.
+- **Una lectura cortada a la mitad se vuelve a pagar entera.** Cada análisis de un pliego empieza
+  de cero para no repetir requisitos (D42), así que si el proceso se cae leyendo, la siguiente
+  pasada repite la extracción. Cuesta unos céntimos y solo pasa cuando algo se ha caído.
 - **El trabajo diario mira 400 licitaciones por pasada como mucho** (`radar/diario.py`). No es un
   límite de dinero —triar 400 cuesta céntimos— sino de tiempo: una mañana no puede quedarse
   colgada porque el histórico traiga miles. Lo que no entre sigue pendiente al día siguiente.

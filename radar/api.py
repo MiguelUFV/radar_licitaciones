@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from radar import clientes, diario, empresas, formulario, ingesta, pliegos
+from radar import clientes, diario, empresas, formulario, incidencias, ingesta, pliegos
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 
@@ -25,6 +25,27 @@ def error_legible(peticion: Request, error: ErrorRadar) -> JSONResponse:
     nunca una traza (CLAUDE.md, innegociable 3). El detalle técnico va al log.
     """
     return JSONResponse(status_code=503, content={"estado": "error", "mensaje": error.mensaje})
+
+
+@app.exception_handler(Exception)
+def fallo_no_previsto(peticion: Request, error: Exception) -> JSONResponse:
+    """Lo que nadie vio venir tampoco se le enseña a nadie.
+
+    Sin esto, un fallo no previsto salía como un 500 con la traza dentro, y esa traza acababa
+    en el correo de aviso de n8n, que lo lee una persona (CLAUDE.md, innegociable 3). La traza
+    va a `incidencias`, con la ruta que la provocó, para poder arreglarlo.
+    """
+    incidencias.apuntar("api", f"Fallo no previsto en {peticion.url.path}.", error)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "estado": "error",
+            "mensaje": (
+                "Ha fallado algo no previsto en el radar. Queda apuntado con el detalle "
+                "técnico en la tabla de incidencias."
+            ),
+        },
+    )
 
 
 class PeticionIngesta(BaseModel):
@@ -150,4 +171,9 @@ async def alta_guardar(peticion: Request) -> str:
     errores = clientes.validar(valores)
     if errores:
         return formulario.formulario(valores, errores)
-    return formulario.guardado(clientes.dar_de_alta(valores))
+    try:
+        return formulario.guardado(clientes.dar_de_alta(valores))
+    except ErrorRadar as e:
+        # Quien rellena un formulario no tiene por qué recibir un JSON de error: el motivo va
+        # al lado del campo, con lo que ya había escrito todavía puesto.
+        return formulario.formulario(valores, {"alias": e.mensaje})

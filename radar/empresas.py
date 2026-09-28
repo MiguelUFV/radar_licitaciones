@@ -107,11 +107,16 @@ def comprobar(empresa: dict) -> None:
 
 
 def activas(conexion) -> list[dict]:
-    """Los clientes que hoy esperan un correo. El estudio no está aquí: no es cliente de nadie."""
+    """Los clientes que hoy esperan un correo. El estudio no está aquí: no es cliente de nadie.
+
+    **Sin candado a propósito.** Hacer la lista es hacer la lista; el texto se comprueba cuando
+    se va a usar, ya dentro de la mañana de cada empresa. Comprobándolo aquí, una sola ficha
+    tocada dejaba a todos los clientes sin trabajo.
+    """
     with conexion.cursor() as cur:
         cur.execute("SELECT alias FROM clientes WHERE activo ORDER BY alias")
         aliases = [fila[0] for fila in cur.fetchall()]
-    return [la_de(conexion, alias) for alias in aliases]
+    return [la_de(conexion, alias, con_candado=False) for alias in aliases]
 
 
 # Lo que ha costado un día **a una empresa**. Una llamada de triaje lleva veinte licitaciones

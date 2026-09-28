@@ -18,6 +18,7 @@ Tres reglas gobiernan este módulo:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass, field
@@ -187,8 +188,15 @@ def guardar(
     prompt: prompts.Prompt,
     por_llamada: int,
     run_id=None,
+    perfil: str | None = None,
 ) -> int:
-    """Apunta una decisión por licitación. Lo que el modelo no contestó queda como 'revisar'."""
+    """Apunta una decisión por licitación. Lo que el modelo no contestó queda como 'revisar'.
+
+    `perfil` es el texto que leyó el modelo, y se guarda su huella. Un cliente edita su ficha
+    cuando quiere: sin esto no se podría explicar por qué el radar descartó algo hace tres
+    semanas. La columna existía desde la migración 011 y nadie la escribía.
+    """
+    huella = hashlib.sha256(perfil.encode("utf-8")).hexdigest() if perfil else None
     filas = []
     for i, lic in enumerate(licitaciones, start=1):
         decision, motivo = respuesta.decisiones.get(str(i), (REVISAR, "El modelo no la contestó."))
@@ -204,13 +212,14 @@ def guardar(
                 motivo[:1000],
                 ficha.get("id"),
                 run_id,
+                huella,
             )
         )
     with conexion.cursor() as cur:
         cur.executemany(
             "INSERT INTO triajes (licitacion, alias, modelo, esfuerzo, por_llamada,"
-            " prompt_version, decision, motivo, llm_llamada, run_id)"
-            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            " prompt_version, decision, motivo, llm_llamada, run_id, perfil_sha256)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
             " ON CONFLICT (licitacion, alias, modelo, por_llamada, prompt_version) DO NOTHING",
             filas,
         )

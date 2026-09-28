@@ -277,31 +277,7 @@ def dar_de_alta(valores: dict) -> dict:
     return {"id": identificador, "alias": valores["alias"], "nuevo": nuevo, "texto": texto}
 
 
-def de_alias(conexion, alias: str) -> dict:
-    with conexion.cursor() as cur:
-        cur.execute(
-            "SELECT alias, nombre, correo, texto, texto_sha256, cifra_negocio, cifra_fuente,"
-            " tope_diario_eur, activo FROM clientes WHERE alias = %s",
-            (alias,),
-        )
-        fila = cur.fetchone()
-    if not fila:
-        raise ErrorRadar(f"No hay ninguna empresa dada de alta con el nombre «{alias}».")
-    campos = (
-        "alias",
-        "nombre",
-        "correo",
-        "texto",
-        "texto_sha256",
-        "cifra_negocio",
-        "cifra_fuente",
-        "tope_diario_eur",
-        "activo",
-    )
-    return dict(zip(campos, fila, strict=True))
-
-
-def activos(conexion) -> list[dict]:
-    with conexion.cursor() as cur:
-        cur.execute("SELECT alias FROM clientes WHERE activo ORDER BY alias")
-        return [de_alias(conexion, fila[0]) for fila in cur.fetchall()]
+# `de_alias` y `activos` vivían aquí y se han ido a `radar/empresas.py`. Eran una segunda forma
+# de preguntar «¿quién es esta empresa?», con los mismos datos y otros nombres de campo, y eso
+# ya costó un fallo: un diccionario de aquí llegó a una función que esperaba el de allí y se
+# cayó con `KeyError: 'huella'`. Una sola forma de preguntarlo.

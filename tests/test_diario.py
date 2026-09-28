@@ -21,7 +21,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from radar import clientes, correo, diario, llm, prompts, triaje
+from radar import clientes, correo, diario, empresas, llm, prompts, triaje
 from radar.errores import ErrorRadar
 
 CLIENTE = {
@@ -41,7 +41,12 @@ CLIENTE = {
 PERFIL_ESTUDIO = "## Qué hace\nMantenimiento de equipos informáticos.\n"
 
 
-def licitacion(conexion, numero: int, objeto: str = "Suministro de licencias de software") -> int:
+def licitacion(
+    conexion,
+    numero: int,
+    objeto: str = "Suministro de licencias de software",
+    plazo: str = "2026-12-01",
+) -> int:
     """Una licitación vigente, con su rastro hasta la capa raw."""
     with conexion.cursor() as cur:
         cur.execute(
@@ -59,8 +64,8 @@ def licitacion(conexion, numero: int, objeto: str = "Suministro de licencias de 
             "INSERT INTO licitaciones (entry_id, entry_updated, stg_entrada, expediente, objeto,"
             " organo, importe_sin_iva, plazo_presentacion)"
             " VALUES (%s, '2026-09-28T10:00:00+02:00', %s, %s, %s, 'Ayuntamiento de ejemplo',"
-            " 40000, '2026-12-01') RETURNING id",
-            (f"e{numero}", stg, f"2026/{numero}", objeto),
+            " 40000, %s) RETURNING id",
+            (f"e{numero}", stg, f"2026/{numero}", objeto, plazo),
         )
         return cur.fetchone()[0]
 
@@ -185,6 +190,7 @@ class ApiFalsa:
     def __init__(self, decisiones: str = "si"):
         self.peticiones = []
         self.decisiones = decisiones
+        self.texto_fijo = None
         self.messages = types.SimpleNamespace(
             create=self._create,
             count_tokens=lambda **kw: types.SimpleNamespace(input_tokens=500),
@@ -193,7 +199,7 @@ class ApiFalsa:
     def _create(self, **peticion):
         self.peticiones.append(peticion)
         cuantas = peticion["messages"][0]["content"].count("### ") or 1
-        texto = json.dumps(
+        texto = self.texto_fijo or json.dumps(
             {
                 "decisiones": [
                     {"ref": str(n), "decision": self.decisiones, "motivo": "encaja"}
@@ -279,7 +285,7 @@ def test_el_triaje_se_para_al_llegar_al_tope_de_la_empresa(bd, entorno):
         for numero in range(1, 45):
             licitacion(conexion, numero)
         conexion.commit()
-        empresa = clientes.de_alias(conexion, "Empresa del Norte")
+        empresa = empresas.la_de(conexion, "Empresa del Norte")
         empresa["texto"] = "## Qué hace\nSoftware.\n"
         api = ApiFalsa()
         hecho = diario.triar_lo_nuevo(conexion, empresa, None, tope=0.0005, gastado=0.0, api=api)
@@ -305,7 +311,7 @@ def test_una_empresa_que_ya_gasto_lo_suyo_no_vuelve_a_empezar(bd, entorno):
         with conexion.cursor() as cur:
             cur.execute("UPDATE triajes SET llm_llamada = %s", (llamada,))
         conexion.commit()
-        empresa = clientes.de_alias(conexion, "Empresa del Norte")
+        empresa = empresas.la_de(conexion, "Empresa del Norte")
         hecho = diario.de_una_empresa(conexion, empresa, None, date.today())
     assert "ya ha gastado" in hecho["parado"]
     assert "triadas" not in hecho
@@ -366,7 +372,7 @@ def test_no_se_abre_un_pliego_si_lo_que_queda_no_da_para_uno(bd, monkeypatch):
             cur.execute("SELECT id FROM licitaciones ORDER BY id")
             todas = [fila[0] for fila in cur.fetchall()]
         triar_a_mano(conexion, "Empresa del Norte", todas)
-        empresa = clientes.de_alias(conexion, "Empresa del Norte")
+        empresa = empresas.la_de(conexion, "Empresa del Norte")
         hecho = diario.leer_pliegos(conexion, empresa, None, tope=0.10, gastado=0.05)
     assert abiertos == [], "quedaban 0,05 € y un pliego se reserva a 0,08: no cabía ninguno"
     assert "no da para hoy" in hecho["parado"]
@@ -422,3 +428,346 @@ def test_el_workflow_diario_recorre_las_empresas_y_manda_a_cada_una_la_suya():
     assert nombres.index("Triar y leer para esa empresa") < nombres.index("Pedir el correo del dia")
     envio = trabajo["nodes"][-1]["parameters"]
     assert envio["toEmail"] == "={{ $json.destinatario }}", "cada empresa recibe en su direccion"
+
+
+# --- 4. Lo que se mira primero cuando no cabe todo -------------------------------------
+
+
+def test_se_tria_antes_lo_que_antes_vence(bd):
+    # Cuando hay más licitaciones que sitio en la pasada, las que entran tienen que ser las que
+    # antes cierran plazo. Con el orden mal puesto entraban las primeras por identificador, que
+    # es un orden sin ningún sentido para quien tiene que presentarse.
+    clientes.dar_de_alta(CLIENTE)
+    with bd() as conexion:
+        licitacion(conexion, 1, plazo="2026-12-31")
+        licitacion(conexion, 2, plazo="2026-10-05")
+        licitacion(conexion, 3, plazo="2026-11-10")
+        conexion.commit()
+        elegidas = diario.sin_triar(conexion, "Empresa del Norte", limite=2)
+    assert [lic["entry_id"] for lic in elegidas] == ["e2", "e3"]
+
+
+def test_se_lee_antes_el_pliego_que_antes_vence(bd):
+    clientes.dar_de_alta(CLIENTE)
+    with bd() as conexion:
+        for numero, plazo in ((1, "2026-12-31"), (2, "2026-10-05"), (3, "2026-11-10")):
+            con_pliego(conexion, licitacion(conexion, numero, plazo=plazo))
+        conexion.commit()
+        with conexion.cursor() as cur:
+            cur.execute("SELECT id FROM licitaciones ORDER BY id")
+            triar_a_mano(conexion, "Empresa del Norte", [f[0] for f in cur.fetchall()])
+        elegidas = diario.sin_ficha(conexion, "Empresa del Norte", limite=2)
+    assert [lic["expediente"] for lic in elegidas] == ["2026/2", "2026/3"]
+
+
+# --- 5. Que un fallo no se lleve por delante la mañana de los demás --------------------
+
+
+def test_si_una_empresa_falla_las_demas_reciben_lo_suyo(bd, entorno, monkeypatch):
+    clientes.dar_de_alta(CLIENTE)
+    clientes.dar_de_alta({**CLIENTE, "alias": "Otra Empresa", "correo": "otra@ejemplo.es"})
+    with bd() as conexion:
+        licitacion(conexion, 1)
+        conexion.commit()
+
+    def falla_para_la_primera(conexion, empresa, run_id, tope, gastado, api=None):
+        if empresa["alias"] == "Empresa del Norte":
+            raise RuntimeError("algo que nadie previó")
+        return {"triadas": 1, "candidatas": 0, "coste_eur": 0.0}
+
+    monkeypatch.setattr(diario, "triar_lo_nuevo", falla_para_la_primera)
+    monkeypatch.setattr(diario, "leer_pliegos", lambda *a, **kw: {"leidos": 0, "coste_eur": 0.0})
+    resultado = diario.del_dia(gastar=True)
+    por_alias = {e["alias"]: e for e in resultado["empresas"]}
+    assert por_alias["Otra Empresa"]["triadas"] == 1, "la segunda empresa se quedó sin su mañana"
+    assert "no previsto" in por_alias["Empresa del Norte"]["fallo"].lower()
+    assert "Traceback" not in json.dumps(resultado)
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT count(*) FROM incidencias WHERE nodo = 'diario'")
+        assert cur.fetchone()[0] == 1, "la traza tiene que quedar apuntada"
+
+
+def test_una_empresa_del_estudio_no_es_un_cliente(bd):
+    # Tienen perfil pero no tope ni dirección: no se les puede mandar nada. Decirlo con
+    # palabras evita el mensaje absurdo de «ya ha gastado hoy sus 0,00 €».
+    with bd() as conexion:
+        empresa_del_estudio(conexion, "Empresa A")
+    with pytest.raises(ErrorRadar) as fallo:
+        diario.del_dia("Empresa A", gastar=True)
+    assert "Empresa A" in str(fallo.value) and "estudio" in str(fallo.value)
+
+
+def test_una_empresa_que_no_existe_lo_dice_sin_traza(bd):
+    with pytest.raises(ErrorRadar) as fallo:
+        diario.del_dia("Empresa Fantasma")
+    assert "Empresa Fantasma" in str(fallo.value) and "Traceback" not in str(fallo.value)
+
+
+# --- 6. Que se pueda explicar una decisión de hace tres semanas ------------------------
+
+
+def test_el_triaje_apunta_con_que_version_del_perfil_se_decidio(bd, entorno):
+    # Un cliente edita su ficha cuando quiere. Sin esta huella no se puede explicar por qué el
+    # radar descartó algo hace tres semanas. D38 decía que se guardaba, la columna existía
+    # desde la migración 011, y nadie la escribía.
+    alta = clientes.dar_de_alta(CLIENTE)
+    with bd() as conexion:
+        licitacion(conexion, 1)
+        conexion.commit()
+        empresa = empresas.la_de(conexion, "Empresa del Norte")
+        diario.triar_lo_nuevo(conexion, empresa, None, tope=1.0, gastado=0.0, api=ApiFalsa())
+        with conexion.cursor() as cur:
+            cur.execute("SELECT perfil_sha256 FROM triajes")
+            assert cur.fetchone()[0] == clientes.huella(alta["texto"])
+
+
+# --- 7. Fallos que no pueden salir de su sitio ----------------------------------------
+
+
+def test_un_perfil_manipulado_no_deja_sin_correo_a_los_demas(bd, entorno, monkeypatch):
+    # El candado tiene que saltar para esa empresa, no para la mañana entera. Comprobarlo al
+    # hacer la lista dejaba a todos los clientes sin trabajo por culpa de una fila tocada.
+    clientes.dar_de_alta(CLIENTE)
+    clientes.dar_de_alta({**CLIENTE, "alias": "Otra Empresa", "correo": "otra@ejemplo.es"})
+    with bd() as conexion:
+        licitacion(conexion, 1)
+        with conexion.cursor() as cur:
+            cur.execute(
+                "UPDATE clientes SET texto = texto || 'y tambien obra civil' WHERE alias = %s",
+                ("Empresa del Norte",),
+            )
+        conexion.commit()
+    monkeypatch.setattr(diario, "triar_lo_nuevo", lambda *a, **kw: {"triadas": 1, "coste_eur": 0.0})
+    monkeypatch.setattr(diario, "leer_pliegos", lambda *a, **kw: {"leidos": 0, "coste_eur": 0.0})
+    resultado = diario.del_dia(gastar=True)
+    por_alias = {e["alias"]: e for e in resultado["empresas"]}
+    assert por_alias["Otra Empresa"]["triadas"] == 1
+    assert "huella" in por_alias["Empresa del Norte"]["fallo"]
+    assert "Traceback" not in json.dumps(resultado)
+
+
+def test_una_respuesta_ilegible_del_modelo_queda_apuntada(bd, entorno):
+    # La llamada se ha pagado y las licitaciones salen a revisión, pero si nadie apunta que el
+    # modelo contestó cualquier cosa, no hay forma de enterarse de que está pasando.
+    clientes.dar_de_alta(CLIENTE)
+    with bd() as conexion:
+        licitacion(conexion, 1)
+        conexion.commit()
+        empresa = empresas.la_de(conexion, "Empresa del Norte")
+        api = ApiFalsa()
+        api.texto_fijo = "No me ha llegado ninguna licitacion."
+        diario.triar_lo_nuevo(conexion, empresa, None, tope=1.0, gastado=0.0, api=api)
+        with conexion.cursor() as cur:
+            cur.execute("SELECT mensaje FROM incidencias WHERE nodo = 'diario'")
+            fila = cur.fetchone()
+    assert fila is not None, "una respuesta ilegible tiene que quedar apuntada"
+    assert "Empresa del Norte" in fila[0]
+
+
+def test_la_api_no_manda_una_traza_a_n8n(bd, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from radar import api
+
+    monkeypatch.setattr(api.diario, "del_dia", _revienta)
+    respuesta = TestClient(api.app, raise_server_exceptions=False).post("/diario", json={})
+    assert respuesta.status_code == 503
+    assert "Traceback" not in respuesta.text and "ZeroDivision" not in respuesta.text
+    assert "no previsto" in respuesta.json()["mensaje"].lower()
+
+
+def _revienta(*a, **kw):
+    raise ZeroDivisionError("algo que nadie previó")
+
+
+def test_el_alta_con_el_nombre_de_una_empresa_del_estudio_vuelve_al_formulario(bd):
+    from fastapi.testclient import TestClient
+
+    from radar import api
+
+    with bd() as conexion:
+        empresa_del_estudio(conexion, "Empresa A")
+    respuesta = TestClient(api.app, raise_server_exceptions=False).post(
+        "/alta", data={**CLIENTE, "alias": "Empresa A"}
+    )
+    assert respuesta.status_code == 200
+    assert "Empresa A" in respuesta.text and "otro nombre" in respuesta.text
+    # Lo que ya había escrito no se pierde.
+    assert "Autodesk" in respuesta.text
+
+
+# --- 8. La cadena entera, de una vez --------------------------------------------------
+
+CLAUSULA = (
+    "CLAUSULA 12. Solvencia economica y financiera\n"
+    "Volumen anual de negocios referido al mejor ejercicio de los tres ultimos:\n"
+    "150.000 euros. Se acreditara segun lo indicado en este pliego."
+)
+RELLENO = "Texto de relleno sobre plazos de entrega y forma de pago del contrato.\n"
+
+
+class ApiDeTodaLaManana:
+    """Contesta lo que toca según lo que se le pregunte: triaje o extracción.
+
+    No adivina: mira si el mensaje trae licitaciones que triar o páginas de un pliego. Así una
+    sola api falsa vale para la mañana entera, que es lo que se quiere probar.
+    """
+
+    def __init__(self):
+        self.peticiones = []
+        self.messages = types.SimpleNamespace(
+            create=self._create,
+            count_tokens=lambda **kw: types.SimpleNamespace(input_tokens=500),
+        )
+
+    def _create(self, **peticion):
+        self.peticiones.append(peticion)
+        contenido = peticion["messages"][0]["content"]
+        if "licitaciones que hay que triar" in contenido or "licitación que hay que triar" in contenido:
+            cuantas = contenido.count("### ") or 1
+            texto = json.dumps(
+                {
+                    "decisiones": [
+                        {"ref": str(n), "decision": "si", "motivo": "encaja"} for n in range(1, cuantas + 1)
+                    ]
+                },
+                ensure_ascii=False,
+            )
+        else:
+            texto = json.dumps(
+                {
+                    "requisitos": [
+                        {
+                            "tipo": "volumen_negocios",
+                            "exigencia": "volumen anual de 150.000 euros",
+                            "cita": "150.000 euros",
+                            "pagina": 1,
+                            "importe_eur": 150000.0,
+                            "anios": 3,
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+            )
+        return types.SimpleNamespace(
+            content=[types.SimpleNamespace(type="text", text=texto)],
+            usage=types.SimpleNamespace(
+                input_tokens=500,
+                output_tokens=100,
+                cache_creation_input_tokens=0,
+                cache_read_input_tokens=0,
+            ),
+            stop_reason="end_turn",
+            _request_id="req_de_prueba",
+            to_dict=lambda: {"content": [{"type": "text", "text": texto}]},
+        )
+
+
+def test_del_alta_al_correo_sin_tocar_nada_por_el_camino(bd, entorno, monkeypatch, tmp_path):
+    """Una empresa se da de alta y esa misma mañana recibe una ficha con su cita y su página.
+
+    Es la prueba que falta cuando todas las piezas pasan por separado: aquí se comprueba que
+    encajan. Con el modelo falseado, pero con un PDF de verdad, la base de verdad y el grafo
+    de verdad, ramas incluidas.
+    """
+    from conftest import pdf_con_paginas
+
+    from radar import llm
+
+    api = ApiDeTodaLaManana()
+    monkeypatch.setattr(llm, "cliente", lambda: api)
+    clientes.dar_de_alta({**CLIENTE, "tope_diario_eur": "1.00"})
+
+    pliego = tmp_path / "pliego.pdf"
+    pliego.write_bytes(pdf_con_paginas([CLAUSULA, RELLENO]))
+    with bd() as conexion:
+        una = licitacion(conexion, 1)
+        with conexion.cursor() as cur:
+            cur.execute(
+                "INSERT INTO raw_ficheros (sha256, tipo, url, ruta, bytes, descargado_en)"
+                " VALUES (repeat('a', 64), 'pliego', 'https://ejemplo.es/p.pdf', %s, %s, now())",
+                (str(pliego), pliego.stat().st_size),
+            )
+            cur.execute(
+                "INSERT INTO documentos (licitacion, tipo, url, raw_fichero, estado_descarga,"
+                " paginas) VALUES (%s, 'PCAP', 'https://ejemplo.es/p.pdf', repeat('a', 64),"
+                " 'descargado', 2)",
+                (una,),
+            )
+        conexion.commit()
+
+    resultado = diario.del_dia(gastar=True)
+    empresa = resultado["empresas"][0]
+    assert empresa.get("fallo") is None, empresa.get("fallo")
+    assert empresa["triadas"] == 1 and empresa["candidatas"] == 1
+    assert empresa["leidos"] == 1, "el pliego tenía que abrirse"
+    assert 0 < empresa["coste_eur"] <= 1.00
+
+    escrito = correo.del_correo("Empresa del Norte", date.today())
+    assert escrito["destinatario"] == "contratacion@ejemplo.es"
+    assert escrito["licitaciones"] == 1
+    assert "PUEDE PRESENTARSE" in escrito["texto"]
+    assert "1 requisito leído del pliego: 1 cumple" in escrito["texto"], (
+        "el modelo devolvió un requisito: uno tiene que salir, ni ninguno ni cuatro"
+    )
+    assert escrito["asunto"].startswith("Radar de licitaciones")
+
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT veredicto FROM fichas WHERE alias = 'Empresa del Norte'")
+        assert cur.fetchone()[0] in ("apta", "revisar")
+        cur.execute("SELECT pagina, verificada FROM requisitos")
+        pagina, verificada = cur.fetchone()
+        assert verificada, "la cita tiene que estar comprobada contra la página"
+        assert pagina == 1
+        cur.execute("SELECT count(*) FROM incidencias")
+        assert cur.fetchone()[0] == 0, "una mañana limpia no deja incidencias"
+
+
+def test_leer_dos_veces_el_mismo_pliego_no_duplica_los_requisitos(bd, entorno, monkeypatch, tmp_path):
+    """El paso a paso de LangGraph guarda el estado con la clave `licitacion:empresa:reglas`.
+
+    Al volver a leer el mismo pliego —porque la vez anterior se cortó a la mitad, que es
+    justamente para lo que está el checkpointer— el grafo reanudaba aquel estado y **sumaba**
+    los requisitos nuevos a los viejos. La ficha salía con el mismo requisito repetido tantas
+    veces como se hubiera leído, y el correo decía «de 4 requisitos leídos, 4 cumplen» de un
+    pliego que solo tenía uno.
+    """
+    from conftest import pdf_con_paginas
+
+    from radar import grafo, llm
+
+    monkeypatch.setattr(llm, "cliente", lambda: ApiDeTodaLaManana())
+    clientes.dar_de_alta(CLIENTE)
+    pliego = tmp_path / "pliego.pdf"
+    pliego.write_bytes(pdf_con_paginas([CLAUSULA, RELLENO]))
+    with bd() as conexion:
+        una = licitacion(conexion, 1)
+        with conexion.cursor() as cur:
+            cur.execute(
+                "INSERT INTO raw_ficheros (sha256, tipo, url, ruta, bytes, descargado_en)"
+                " VALUES (repeat('a', 64), 'pliego', 'https://ejemplo.es/p.pdf', %s, 1, now())",
+                (str(pliego),),
+            )
+            cur.execute(
+                "INSERT INTO documentos (licitacion, tipo, url, raw_fichero, estado_descarga,"
+                " paginas) VALUES (%s, 'PCAP', 'https://ejemplo.es/p.pdf', repeat('a', 64),"
+                " 'descargado', 2)",
+                (una,),
+            )
+        conexion.commit()
+        empresa = empresas.la_de(conexion, "Empresa del Norte")
+
+    datos = {
+        "alias": empresa["alias"],
+        "perfil": empresa["texto"],
+        "cifra_negocio": empresa["cifra_negocio"],
+        "cifra_fuente": empresa["cifra_fuente"],
+    }
+    with grafo.checkpointer_de_postgres() as guardado:
+        guardado.setup()
+        for _ in range(3):
+            estado = grafo.analizar(una, empresa["alias"], checkpointer=guardado, empresa=datos)
+    assert len(estado["motivos"]) == 1, "la ficha repite el mismo requisito una vez por lectura"
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT count(*) FROM requisitos")
+        assert cur.fetchone()[0] == 1

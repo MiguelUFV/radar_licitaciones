@@ -144,7 +144,15 @@ def triar(conexion, tareas: list[dict], run_id, api=None) -> dict:
                 hecho["parado"] = e.mensaje
                 return hecho
             triaje.guardar(
-                conexion, tarea["alias"], lote, respuesta, ficha, prompt, VARIANTE["por_llamada"], run_id
+                conexion,
+                tarea["alias"],
+                lote,
+                respuesta,
+                ficha,
+                prompt,
+                VARIANTE["por_llamada"],
+                run_id,
+                perfil=perfil,
             )
             hecho["triadas"] += len(lote)
             hecho["ganados"] += sum(1 for lic in lote if lic["ganado"])

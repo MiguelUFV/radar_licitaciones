@@ -15,7 +15,7 @@ Lo que se comprueba, en orden de importancia:
 
 import pytest
 
-from radar import clientes
+from radar import clientes, empresas
 from radar.errores import ErrorRadar
 
 COMPLETO = {
@@ -60,7 +60,7 @@ def test_un_tope_de_un_euro_no_se_convierte_en_cien(bd):
     # de miles. El cliente pedía gastar un euro al día y el radar entendía cien.
     clientes.dar_de_alta(COMPLETO)
     with bd() as conexion:
-        cliente = clientes.de_alias(conexion, "Empresa del Norte")
+        cliente = empresas.la_de(conexion, "Empresa del Norte")
     assert float(cliente["tope_diario_eur"]) == 1.0
 
 
@@ -137,17 +137,17 @@ def test_guardar_dos_veces_actualiza_y_no_duplica(bd):
     segundo = clientes.dar_de_alta({**COMPLETO, "productos": "Autodesk, PRESTO, Adobe, Fujitsu"})
     assert primero["nuevo"] and not segundo["nuevo"]
     with bd() as conexion:
-        cliente = clientes.de_alias(conexion, "Empresa del Norte")
+        cliente = empresas.la_de(conexion, "Empresa del Norte")
         with conexion.cursor() as cur:
             cur.execute("SELECT count(*) FROM clientes")
             assert cur.fetchone()[0] == 1
     assert "Fujitsu" in cliente["texto"]
-    assert cliente["texto_sha256"] != clientes.huella(primero["texto"]), (
+    assert cliente["huella"] != clientes.huella(primero["texto"]), (
         "si cambia el perfil tiene que cambiar su huella: es lo que ata una decisión a su texto"
     )
 
 
 def test_una_empresa_que_no_existe_lo_dice(bd):
     with bd() as conexion, pytest.raises(ErrorRadar) as fallo:
-        clientes.de_alias(conexion, "Nadie")
+        empresas.la_de(conexion, "Nadie")
     assert "Nadie" in str(fallo.value) and "Traceback" not in str(fallo.value)

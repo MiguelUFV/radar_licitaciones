@@ -51,8 +51,12 @@ TOPE_TRIAJE = 400
 # calcularlo. Sale de la Fase 4: 0,070 € de media por pliego, 4,7 páginas leídas de 51,5.
 RESERVA_INICIAL = 0.15
 
+# El orden es por plazo y el tope cae **después** de ordenar. Parece obvio y no lo era: la
+# consulta ordenaba primero por `entry_id` —se lo pedía el `DISTINCT ON`— y el `LIMIT` se
+# quedaba con las 400 primeras por identificador, que es un orden sin ningún sentido para quien
+# tiene que presentarse. La vista ya trae una fila por expediente, así que el `DISTINCT` sobraba.
 SIN_TRIAR = """
-SELECT DISTINCT ON (v.entry_id) v.id, v.entry_id, v.objeto, v.organo, v.cpv, v.tipo_contrato
+SELECT v.id, v.entry_id, v.objeto, v.organo, v.cpv, v.tipo_contrato
 FROM v_licitaciones_vigentes v
 WHERE NOT v.anulada
   AND (v.plazo_presentacion IS NULL OR v.plazo_presentacion >= current_date)
@@ -60,27 +64,33 @@ WHERE NOT v.anulada
       SELECT 1 FROM triajes t JOIN licitaciones l ON l.id = t.licitacion
       WHERE t.alias = %s AND l.entry_id = v.entry_id
   )
-ORDER BY v.entry_id, v.plazo_presentacion NULLS LAST
+ORDER BY v.plazo_presentacion NULLS LAST, v.entry_id
 LIMIT %s
 """
 
 # Lo que el triaje dejó pasar y todavía no tiene ficha. Se pide el pliego descargado aquí y no
 # dentro del grafo para no pagar el arranque de un expediente del que no hay nada que leer.
 SIN_FICHA = """
-SELECT DISTINCT ON (v.entry_id) v.id, v.expediente, v.objeto, v.plazo_presentacion
-FROM triajes t
-JOIN licitaciones l ON l.id = t.licitacion
-JOIN v_licitaciones_vigentes v ON v.entry_id = l.entry_id
-JOIN documentos d ON d.licitacion = l.id AND d.tipo = 'PCAP' AND d.estado_descarga = 'descargado'
-WHERE t.alias = %s
-  AND t.decision = ANY(%s)
-  AND NOT v.anulada
-  AND (v.plazo_presentacion IS NULL OR v.plazo_presentacion >= current_date)
-  AND NOT EXISTS (
-      SELECT 1 FROM fichas f JOIN licitaciones fl ON fl.id = f.licitacion
-      WHERE f.alias = %s AND fl.entry_id = v.entry_id
-  )
-ORDER BY v.entry_id, v.plazo_presentacion NULLS LAST
+SELECT id, expediente, objeto, plazo
+FROM (
+    SELECT DISTINCT ON (v.entry_id)
+           v.id, v.expediente, v.objeto, v.plazo_presentacion AS plazo
+    FROM triajes t
+    JOIN licitaciones l ON l.id = t.licitacion
+    JOIN v_licitaciones_vigentes v ON v.entry_id = l.entry_id
+    JOIN documentos d
+      ON d.licitacion = l.id AND d.tipo = 'PCAP' AND d.estado_descarga = 'descargado'
+    WHERE t.alias = %s
+      AND t.decision = ANY(%s)
+      AND NOT v.anulada
+      AND (v.plazo_presentacion IS NULL OR v.plazo_presentacion >= current_date)
+      AND NOT EXISTS (
+          SELECT 1 FROM fichas f JOIN licitaciones fl ON fl.id = f.licitacion
+          WHERE f.alias = %s AND fl.entry_id = v.entry_id
+      )
+    ORDER BY v.entry_id, v.id
+) AS candidatas
+ORDER BY plazo NULLS LAST, id
 LIMIT %s
 """
 
@@ -118,8 +128,7 @@ def sin_ficha(conexion, alias: str, limite: int = 100) -> list[dict]:
     campos = ("id", "expediente", "objeto", "plazo")
     with conexion.cursor() as cur:
         cur.execute(SIN_FICHA, (alias, list(PASAN), alias, limite))
-        filas = [dict(zip(campos, fila, strict=True)) for fila in cur.fetchall()]
-    return sorted(filas, key=lambda f: (f["plazo"] is None, f["plazo"]))
+        return [dict(zip(campos, fila, strict=True)) for fila in cur.fetchall()]
 
 
 def reserva_por_pliego(conexion) -> float:
@@ -155,7 +164,26 @@ def triar_lo_nuevo(conexion, empresa: dict, run_id, tope: float, gastado: float,
         except llm.PresupuestoAgotado as e:
             hecho["parado"] = e.mensaje
             break
-        triaje.guardar(conexion, empresa["alias"], lote, respuesta, ficha, prompt, triaje.POR_LLAMADA, run_id)
+        triaje.guardar(
+            conexion,
+            empresa["alias"],
+            lote,
+            respuesta,
+            ficha,
+            prompt,
+            triaje.POR_LLAMADA,
+            run_id,
+            perfil=empresa["texto"],
+        )
+        if respuesta.ilegible:
+            # La llamada está pagada y el lote sale a revisión, pero si nadie lo apunta no hay
+            # forma de enterarse de que el modelo está contestando cualquier cosa.
+            incidencias.apuntar(
+                "diario",
+                f"El modelo contestó algo que no se pudo leer triando para "
+                f"{empresa['alias']}: {respuesta.ilegible} Las {len(lote)} licitaciones de esa "
+                "llamada quedan para mirar a mano.",
+            )
         hecho["triadas"] += len(lote)
         hecho["candidatas"] += sum(1 for d, _ in respuesta.decisiones.values() if d in PASAN)
         hecho["coste_eur"] += float(ficha["coste_eur"])
@@ -215,6 +243,8 @@ def leer_pliegos(conexion, empresa: dict, run_id, tope: float, gastado: float, g
 
 def de_una_empresa(conexion, empresa: dict, run_id, dia: date, guardado=None, api=None) -> dict:
     """La mañana de un cliente: triar lo nuevo y leer lo que dé su tope."""
+    # Aquí, y no al hacer la lista: si el texto está tocado, lo paga esta empresa y no las otras.
+    empresas.comprobar(empresa)
     tope = float(empresa["tope_diario_eur"] or 0)
     _, gastado = empresas.gastado_hoy(conexion, empresa["alias"], dia)
     resumen = {"alias": empresa["alias"], "tope_eur": tope, "gastado_antes_eur": round(gastado, 4)}
@@ -253,28 +283,81 @@ def lo_que_falta(conexion, empresa: dict, dia: date) -> dict:
     }
 
 
+def a_quien_toca(conexion, alias: str | None) -> list[dict]:
+    """Las empresas de esta mañana, comprobando que de verdad se les puede mandar algo."""
+    if alias:
+        empresa = empresas.la_de(conexion, alias)
+        if empresa["origen"] != "cliente":
+            raise ErrorRadar(
+                f"La empresa «{alias}» es del estudio, no un cliente: no tiene tope diario ni "
+                "dirección a la que escribir. El estudio se mide con radar.evaluacion, no con "
+                "el trabajo diario."
+            )
+        if not empresa["activo"]:
+            raise ErrorRadar(f"La empresa «{alias}» está dada de baja: no entra en el trabajo diario.")
+        return [empresa]
+    activas = empresas.activas(conexion)
+    if not activas:
+        raise ErrorRadar("No hay ninguna empresa dada de alta. El formulario está en /alta.")
+    return activas
+
+
+def preparar_el_paso_a_paso() -> None:
+    """Crea las tablas del checkpointer **antes** de abrir la conexión de trabajo.
+
+    Su `setup()` levanta índices con `CREATE INDEX CONCURRENTLY`, que espera a que terminen
+    todas las transacciones abiertas. Hecho con la conexión de la mañana ya abierta, la pasada
+    puede quedarse esperándose a sí misma.
+    """
+    with checkpointer_de_postgres() as guardado:
+        guardado.setup()
+
+
+def la_manana_de(conexion, empresa: dict, run_id, dia: date, guardado) -> dict:
+    """La mañana de una empresa, sin que su fallo se lleve por delante la de las demás.
+
+    Un cliente que falla no puede dejar sin correo a los otros cuatro. El motivo sale en
+    castellano y la traza va a `incidencias`, como todo lo demás.
+    """
+    try:
+        return de_una_empresa(conexion, empresa, run_id, dia, guardado)
+    except ErrorRadar as e:
+        conexion.rollback()
+        incidencias.apuntar("diario", f"{empresa['alias']}: {e.mensaje}", e)
+        return {"alias": empresa["alias"], "fallo": e.mensaje}
+    except Exception as e:  # noqa: BLE001  la mañana de los demás sigue
+        conexion.rollback()
+        incidencias.apuntar("diario", f"Fallo no previsto en la mañana de {empresa['alias']}.", e)
+        return {
+            "alias": empresa["alias"],
+            "fallo": (
+                "Ha fallado algo no previsto al mirar las licitaciones de esta empresa. Queda "
+                "apuntado con el detalle técnico; mañana se vuelve a intentar."
+            ),
+        }
+
+
 def del_dia(alias: str | None = None, gastar: bool = False, dia: date | None = None) -> dict:
     """El trabajo de la mañana, de un cliente o de todos los activos."""
     dia = dia or date.today()
     with conectar() as conexion:
-        lista = [empresas.la_de(conexion, alias)] if alias else empresas.activas(conexion)
-        if not lista:
-            raise ErrorRadar("No hay ninguna empresa dada de alta. El formulario está en /alta.")
+        lista = a_quien_toca(conexion, alias)
         if not gastar:
-            return {"dia": dia.isoformat(), "empresas": [lo_que_falta(conexion, e, dia) for e in lista]}
+            return {
+                "dia": dia.isoformat(),
+                "empresas": [lo_que_falta(conexion, e, dia) for e in lista],
+            }
+    preparar_el_paso_a_paso()
+    with conectar() as conexion, checkpointer_de_postgres() as guardado:
         run_id = abrir_ejecucion(conexion, "diaria", None)
-        hecho = []
-        try:
-            # Un checkpointer para toda la mañana. Es el paso a paso de LangGraph: si algo se
-            # cae a mitad de un pliego, se ve en qué nodo estaba.
-            with checkpointer_de_postgres() as guardado:
-                guardado.setup()
-                for empresa in lista:
-                    hecho.append(de_una_empresa(conexion, empresa, run_id, dia, guardado))
-        except Exception as e:
-            cerrar_ejecucion(conexion, run_id, "error", str(e)[:500])
-            raise
-        cerrar_ejecucion(conexion, run_id, "ok", None)
+        hecho = [la_manana_de(conexion, e, run_id, dia, guardado) for e in lista]
+        fallos = [e["alias"] for e in hecho if e.get("fallo")]
+        cerrar_ejecucion(
+            conexion,
+            run_id,
+            "error" if fallos and len(fallos) == len(hecho) else "ok",
+            f"Sin terminar: {', '.join(fallos)}"[:500] if fallos else None,
+        )
     return {"dia": dia.isoformat(), "run_id": str(run_id), "empresas": hecho}
 
 

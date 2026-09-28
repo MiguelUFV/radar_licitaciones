@@ -204,7 +204,15 @@ def ejecutar(conexion, plan: dict, prompt: prompts.Prompt, run_id, api=None) -> 
                     run_id=run_id,
                 )
                 triaje.guardar(
-                    conexion, alias, lote, respuesta, ficha, prompt, variante["por_llamada"], run_id
+                    conexion,
+                    alias,
+                    lote,
+                    respuesta,
+                    ficha,
+                    prompt,
+                    variante["por_llamada"],
+                    run_id,
+                    perfil=perfil,
                 )
                 hecho[nombre] += len(lote)
     return hecho

@@ -354,12 +354,29 @@ def analizar(licitacion: int, alias: str, run_id=None, checkpointer=None, empres
         with conectar() as conexion:
             empresa = empresa_de(conexion, alias)
     agente = construir(checkpointer)
+    # Cada análisis empieza de cero, aunque el checkpointer tenga guardado el de la vez
+    # anterior. El `thread_id` es `licitacion:empresa:reglas`, así que volver a leer el mismo
+    # pliego reanudaba aquel estado y `nodo_extraer` sumaba los requisitos nuevos a los viejos:
+    # la ficha salía con el mismo requisito repetido una vez por lectura, y el correo decía «de
+    # 4 requisitos leídos, 4 cumplen» de un pliego que tenía uno. Descubierto el 28-09-2026.
+    #
+    # Lo que se pierde es reanudar una lectura cortada a la mitad sin volver a pagarla; lo que
+    # se gana es que nunca se repita un requisito. Repetir una extracción cuesta unos céntimos
+    # y pasa solo si el proceso se cayó; una ficha con el mismo requisito cuatro veces la lee
+    # el cliente. El paso a paso sigue guardándose, que es para lo que está (D04).
     entrada = {
         "licitacion": licitacion,
         "alias": alias,
         "empresa": empresa,
         "run_id": run_id,
         "paginas": [],
+        "lecturas": [],
+        "saltos": 0,
+        "por_leer": None,
+        "encontrado_el_anexo": False,
+        "motivo": None,
+        "veredicto": None,
+        "motivos": [],
     }
     configuracion = {"configurable": {"thread_id": f"{licitacion}:{alias}:{reglas.VERSION_ACTUAL}"}}
     return agente.invoke(entrada, configuracion)

@@ -406,3 +406,19 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
 - **La reserva antes de abrir un pliego sale de lo medido**, no de una cifra inventada: el
   percentil 90 del coste de los pliegos ya leídos, y el percentil y no la media porque tiene que
   cubrir uno caro. Mientras no haya ninguno leído se usa el 0,070 €/pliego de la Fase 4.
+
+## D42 · Cada análisis de un pliego empieza de cero, aunque haya estado guardado
+- **El fallo, del 28-09-2026:** el `thread_id` del checkpointer es `licitacion:empresa:reglas`.
+  Al volver a leer el mismo pliego —lo que pasa cuando la vez anterior se cortó, que es
+  justamente para lo que está el checkpointer— el grafo reanudaba aquel estado y `nodo_extraer`
+  **sumaba** los requisitos nuevos a los viejos. La ficha salía con el mismo requisito repetido
+  una vez por lectura y el correo decía «de 4 requisitos leídos del pliego: 4 cumplen» de un
+  pliego que tenía uno. Se vio en la prueba de extremo a extremo: la misma prueba daba 3
+  requisitos, y a la siguiente 4.
+- **Decisión:** `analizar()` pone `lecturas`, `saltos` y `motivos` a cero en cada invocación.
+- **Lo que se pierde:** reanudar una lectura cortada a la mitad sin volver a pagarla. **Lo que
+  se gana:** que no se repita nunca un requisito. Repetir una extracción cuesta unos céntimos y
+  solo pasa si el proceso se cayó; una ficha con el mismo requisito cuatro veces la lee el
+  cliente. El paso a paso se sigue guardando, que es para lo que está (D04).
+- **En los tests:** las tablas del checkpointer no son del radar y las migraciones no las tocan,
+  así que la fixture `bd` las vacía también. Si no, el estado de un test entra en el siguiente.
