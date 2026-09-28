@@ -192,4 +192,27 @@ muestra una traza al usuario.
 
 ## Cambios fuera de fase (backlog)
 
-_Vacío._
+### Hecho fuera de fase el 28-09-2026: el alta de empresas
+
+El radar se construyó para un estudio con siete empresas elegidas por sorteo y con los perfiles
+congelados. Para que lo use una empresa de verdad hacía falta que pudiera describirse ella, así que
+se ha hecho el formulario de alta (`GET /alta`), la tabla `clientes` y el texto que de ahí sale para
+el modelo (D38 y D39). Va fuera de fase a propósito y queda anotado aquí en lugar de disimularlo.
+
+**El motivo no es un capricho de producto:** la Fase 5 midió que el techo del radar es lo poco que
+sabe de la empresa, y que 19 de los 20 contratos perdidos eran productos que el perfil no nombraba.
+El formulario es el arreglo que señalaba esa medición.
+
+### Lo que falta para que el radar sirva a varias empresas
+
+1. **El trabajo diario, por cliente.** Hoy `radar_diario` ingiere y baja pliegos para todos, pero el
+   correo sale de una sola empresa (`CORREO_EMPRESA` en `.env`). Hay que recorrer los clientes
+   activos, triar con el perfil de cada uno y mandar a cada uno su correo.
+2. **Leer los pliegos en el trabajo diario.** Ahora no se leen: el grafo se lanza a mano. Cada
+   cliente ya trae su `tope_diario_eur`, así que el paso existe, solo hay que llamarlo y cortar por
+   ese tope.
+3. **Que el formulario lo rellene la empresa, no Miguel.** Eso ya no es este proyecto: necesita
+   alojamiento, autenticación y una política de datos. Hoy escucha solo en el ordenador, como todo
+   lo demás (SPEC §9).
+4. **Comprobar que un perfil bien escrito sube el recall.** No se puede medir sobre las siete del
+   estudio sin invalidar la Fase 5; haría falta un segundo estudio con empresas nuevas.

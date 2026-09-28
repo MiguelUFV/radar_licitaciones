@@ -339,3 +339,32 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
   correo de la universidad (SMTP cerrado en la mayoría de las instalaciones institucionales).
 - **Cómo se deshace:** si algún día hay cuenta dedicada, se cambia la credencial en n8n y las dos
   direcciones de `.env`. No hay que tocar código.
+
+## D38 · Los clientes van en su propia tabla, no en la del estudio
+- **El problema:** el radar tiene que servir a empresas de verdad, que se dan de alta cuando
+  quieren y editan su ficha cuando quieren. La tabla `perfiles` no puede hacer eso: cada fila
+  lleva la semilla del sorteo y el sha256 de la regla con la que se eligió esa empresa, y su
+  perfil está bajo candado para que nadie lo cambie después de publicar una medición.
+- **Decisión:** tabla `clientes` aparte (`sql/migraciones/011`). El estudio y el producto no
+  comparten fila. Si la compartieran, una empresa dada de alta hoy parecería un sujeto del
+  estudio y el estudio dejaría de demostrar nada.
+- **Lo que sí comparten:** el formato del texto que lee el modelo. `clientes.como_lo_lee_el_modelo()`
+  genera los mismos apartados que tienen los perfiles congelados, así que el prompt de triaje no
+  tiene que distinguir de dónde viene lo que lee, y una empresa nueva se tría exactamente igual
+  que una del estudio.
+- **Trazabilidad:** `triajes` guarda ahora `perfil_sha256`. Un cliente edita su ficha cuando
+  quiere; sin esa columna no se podría explicar por qué el radar descartó algo hace tres semanas.
+
+## D39 · El formulario pregunta por separado lo que la Fase 5 demostró que falta
+- **El dato:** de los 20 contratos que el radar dejó escapar en la medición, **19 eran productos
+  que el perfil de la empresa no mencionaba** (`docs/informes/fase5_diagnostico.md` §3). El techo
+  del radar no es el modelo: es lo poco que sabe de la empresa.
+- **Por qué no vale una caja de texto libre:** nadie escribe de sí mismo lo que no cree
+  importante. Una distribuidora describe lo que fabrica, no las marcas que revende, y ahí estaban
+  los contratos perdidos.
+- **Decisión:** el formulario pregunta suelto, con un ejemplo real al lado, y tres campos llevan
+  escrito por qué se preguntan: **las marcas que distribuye**, **lo que hace aunque no sea su
+  bandera** y **lo que no hace**. El último permite descartar con motivo en lugar de por silencio.
+- **Queda por comprobar:** que esto de verdad sube el recall. No se puede medir con las empresas
+  del estudio, porque sus perfiles están congelados y volver a escribirlos invalidaría la Fase 5.
+  Haría falta un segundo estudio con empresas nuevas de las 12 que cumplen la regla y no se usaron.

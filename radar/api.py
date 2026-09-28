@@ -7,10 +7,10 @@ endpoint llamar (docs/DECISIONES.md D11).
 from __future__ import annotations
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from radar import ingesta, pliegos
+from radar import clientes, formulario, ingesta, pliegos
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 
@@ -104,3 +104,25 @@ def correo_hoy(empresa: str, fecha: str = "") -> dict:
 
     # La fecha puede llegar vacía desde n8n cuando el webhook no la trae: eso es "hoy".
     return correo.del_correo(empresa, date.fromisoformat(fecha) if fecha else None)
+
+
+@app.get("/alta", response_class=HTMLResponse)
+def alta_formulario() -> str:
+    """El formulario para dar de alta una empresa."""
+    return formulario.formulario()
+
+
+@app.post("/alta", response_class=HTMLResponse)
+async def alta_guardar(peticion: Request) -> str:
+    """Guarda la empresa y le enseña el texto que el radar va a leer de ella.
+
+    Los errores de validación no son un 400 con un JSON: son el mismo formulario otra vez, con
+    lo que ya había escrito y el motivo al lado de cada campo. Quien lo rellena no es un
+    programa.
+    """
+    enviado = dict(await peticion.form())
+    valores = clientes.limpiar(enviado)
+    errores = clientes.validar(valores)
+    if errores:
+        return formulario.formulario(valores, errores)
+    return formulario.guardado(clientes.dar_de_alta(valores))
