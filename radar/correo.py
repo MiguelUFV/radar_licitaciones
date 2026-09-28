@@ -36,24 +36,6 @@ WHERE f.alias = %s AND f.creada_en::date = %s
 ORDER BY array_position(ARRAY['apta', 'no_apta', 'revisar'], f.veredicto), l.expediente
 """
 
-# Lo que ha costado el día **a esta empresa**. Antes esto sumaba `llm_llamadas` del día entero,
-# que con un solo cliente daba igual y con dos es sencillamente falso: cada uno veía en su pie lo
-# que habían gastado los demás. Una llamada de triaje lleva veinte licitaciones dentro, así que
-# se cuentan los identificadores distintos, no las filas.
-GASTO = """
-WITH mias AS (
-    SELECT DISTINCT t.llm_llamada AS id
-    FROM triajes t
-    WHERE t.alias = %s AND t.triada_en::date = %s AND t.llm_llamada IS NOT NULL
-    UNION
-    SELECT DISTINCT r.llm_llamada
-    FROM requisitos r JOIN lecturas l ON l.id = r.lectura
-    WHERE l.alias = %s AND l.leida_en::date = %s AND r.llm_llamada IS NOT NULL
-)
-SELECT count(*), coalesce(sum(c.coste_eur), 0)
-FROM llm_llamadas c JOIN mias ON mias.id = c.id
-"""
-
 TRIADAS = """
 SELECT count(*) FILTER (WHERE decision IN ('si', 'duda')), count(*)
 FROM triajes WHERE alias = %s AND triada_en::date = %s
@@ -85,13 +67,12 @@ def numeros_del_dia(conexion, alias: str, dia: date) -> dict:
     with conexion.cursor() as cur:
         cur.execute(TRIADAS, (alias, dia))
         candidatas, triadas = cur.fetchone()
-        cur.execute(GASTO, (alias, dia, alias, dia))
-        llamadas, gasto = cur.fetchone()
+    llamadas, gasto = empresas.gastado_hoy(conexion, alias, dia)
     return {
         "triadas": triadas,
         "candidatas": candidatas,
         "llamadas": llamadas,
-        "gasto": float(gasto),
+        "gasto": gasto,
     }
 
 

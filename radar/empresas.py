@@ -112,3 +112,29 @@ def activas(conexion) -> list[dict]:
         cur.execute("SELECT alias FROM clientes WHERE activo ORDER BY alias")
         aliases = [fila[0] for fila in cur.fetchall()]
     return [la_de(conexion, alias) for alias in aliases]
+
+
+# Lo que ha costado un día **a una empresa**. Una llamada de triaje lleva veinte licitaciones
+# dentro, así que se cuentan identificadores distintos y no filas: contar filas fue el fallo
+# del 27-09-2026, que multiplicaba por veinte el coste de cada triaje.
+GASTO = """
+WITH mias AS (
+    SELECT DISTINCT t.llm_llamada AS id
+    FROM triajes t
+    WHERE t.alias = %s AND t.triada_en::date = %s AND t.llm_llamada IS NOT NULL
+    UNION
+    SELECT DISTINCT r.llm_llamada
+    FROM requisitos r JOIN lecturas l ON l.id = r.lectura
+    WHERE l.alias = %s AND l.leida_en::date = %s AND r.llm_llamada IS NOT NULL
+)
+SELECT count(*), coalesce(sum(c.coste_eur), 0)
+FROM llm_llamadas c JOIN mias ON mias.id = c.id
+"""
+
+
+def gastado_hoy(conexion, alias: str, dia) -> tuple[int, float]:
+    """Cuántas llamadas y cuántos euros lleva esta empresa ese día."""
+    with conexion.cursor() as cur:
+        cur.execute(GASTO, (alias, dia, alias, dia))
+        llamadas, gasto = cur.fetchone()
+    return llamadas, float(gasto)
