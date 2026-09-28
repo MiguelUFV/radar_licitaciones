@@ -190,6 +190,17 @@ muestra una traza al usuario.
 
 ---
 
+## Abierto: el periodo del estudio estaba mal delimitado (29-09-2026)
+
+Cargar 2024 ha destapado que 7.732 expedientes entraban en el universo del estudio sin deberlo:
+su primera publicación era de 2024 y no se veía porque el histórico empezaba en 2025-01. Los
+contratos ganados de las empresas de test pasan de 77 a 66. El recall del agente recalculado se
+queda igual (74,2 % frente al 74,0 % publicado), pero faltan los baselines.
+
+**Está sin decidir qué se publica, y hay tres opciones escritas en `docs/HALLAZGO_UNIVERSO.md`.**
+Hasta que se decida, el proyecto está en un estado que no vale: con 2024 a medio cargar, ni el
+universo viejo ni el nuevo son ciertos.
+
 ## Cambios fuera de fase (backlog)
 
 ### Hecho fuera de fase el 28-09-2026: el alta de empresas
