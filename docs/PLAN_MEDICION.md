@@ -125,3 +125,19 @@ cifras, y cada cifra lleva el commit de git con el que se calculó.
 
 _Ninguno. Si algún día hay uno, va aquí con su fecha y su motivo, y se vuelve a medir lo que dependa
 de él._
+
+**29-09-2026 · Las cifras de este documento se escribieron con el histórico incompleto.**
+El universo del estudio son los expedientes cuya **primera** publicación cae en el periodo, y la
+carga histórica empezaba en 2025-01. Un expediente publicado en 2024 y actualizado dentro del
+periodo parecía publicado por primera vez dentro del periodo, y entraba. Al completar 2024 esos
+expedientes vuelven a su sitio y salen: el universo baja y con él el número de contratos ganados
+que entran en la medición.
+
+**No cambia nada de lo que este documento decide** —ni la muestra, ni las métricas, ni el
+criterio, ni el orden del gasto—, así que el texto de arriba se queda como estaba. Lo que cambia
+son las cifras que ilustran el tamaño del problema, y las nuevas están en los informes de
+`docs/informes/`, que se regeneran con un comando. El hallazgo, con su alcance y la decisión que
+se tomó, está en `docs/HALLAZGO_UNIVERSO.md` y en `docs/DECISIONES.md` D44.
+
+Se ha vuelto a medir todo lo que dependía del universo, sin volver a llamar al modelo: los
+triajes estaban guardados y lo único que cambia es qué expedientes cuentan.

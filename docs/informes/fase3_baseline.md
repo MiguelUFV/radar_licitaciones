@@ -1,5 +1,12 @@
 # Fase 3 — Verdad de referencia y baseline (el "antes")
 
+> **Aviso del 29-09-2026.** Las cifras de universo de este informe (120.656 expedientes, 666,6
+> licitaciones al día) se midieron con el histórico empezando en 2025-01. Al completar 2024 se
+> vio que parte de esos expedientes se habían publicado antes del periodo y no debían contar:
+> `docs/HALLAZGO_UNIVERSO.md` y `docs/DECISIONES.md` D44. Las cifras vigentes están en
+> `docs/informes/fase5_resultados.md`, que se regenera desde la base.
+
+
 Cerrada el 27-09-2026. Todas las cifras salen de la tabla `eval_resultados` y se regeneran con:
 
 ```bash
