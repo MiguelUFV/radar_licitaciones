@@ -335,3 +335,50 @@ def test_si_la_fila_completa_no_entra_se_apunta_lo_imprescindible(bd, entorno, m
     assert len(filas) == 1, "la llamada se pagó: tiene que estar apuntada"
     assert "incompleto" in filas[0][0]
     assert float(filas[0][1]) > 0
+
+
+# --- Si la API de Anthropic falla, el usuario no ve una traza ---------------------------
+#
+# El 27-09-2026, a mitad de la medicion de las empresas de test, la conexion con la API se
+# corto. El SDK lanza APIConnectionError, que no es un ErrorRadar, asi que subio hasta arriba y
+# el usuario vio veinte lineas de traza de httpx. Innegociable 3: la traza va al log.
+
+
+def api_que_se_corta():
+    import anthropic
+    import httpx
+
+    class Cortada(ApiFalsa):
+        def _create(self, **peticion):
+            raise anthropic.APIConnectionError(
+                request=httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+            )
+
+    return Cortada()
+
+
+def test_si_se_corta_la_conexion_con_el_modelo_el_mensaje_es_legible(bd, entorno):
+    with pytest.raises(ErrorRadar) as fallo:
+        llm.llamar("prueba", [{"role": "user", "content": "hola"}], api=api_que_se_corta())
+    mensaje = str(fallo.value)
+    assert "Traceback" not in mensaje and "httpx" not in mensaje
+    assert "internet" in mensaje.lower() or "conexión" in mensaje.lower()
+    assert "vuelve" in mensaje.lower() or "reanud" in mensaje.lower()
+
+
+def test_el_corte_de_conexion_queda_en_incidencias_con_su_traza(bd, entorno):
+    with pytest.raises(ErrorRadar):
+        llm.llamar("prueba", [{"role": "user", "content": "hola"}], api=api_que_se_corta())
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT nodo, mensaje FROM incidencias ORDER BY id DESC LIMIT 1")
+        nodo, mensaje = cur.fetchone()
+    assert nodo == "llm.llamar"
+    assert "APIConnectionError" in mensaje, "la traza tecnica tiene que quedar en algun sitio"
+
+
+def test_una_llamada_que_no_llego_a_hacerse_no_se_apunta_como_gasto(bd, entorno):
+    with pytest.raises(ErrorRadar):
+        llm.llamar("prueba", [{"role": "user", "content": "hola"}], api=api_que_se_corta())
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT count(*) FROM llm_llamadas")
+        assert cur.fetchone()[0] == 0

@@ -3,7 +3,12 @@
 Una sesión son unas 2–3 horas de trabajo con Claude Code. Total estimado: 14–18 sesiones.
 Ninguna fase empieza sin que la anterior cumpla su criterio de salida.
 
-**Fase activa: 5** (0 a 4 cerradas; informes en `docs/informes/`)
+**Fase activa: 6** (0 a 5 cerradas; informes en `docs/informes/`)
+
+**Resultado de la Fase 5: la tesis principal queda REFUTADA** frente al baseline derivado
+del perfil (−14,3 puntos, IC [−26,0, −3,9]) y no concluyente frente al filtro CPV 72/48
+(−7,8 puntos, IC [−23,4, +7,8]). La causa está medida: 19 de los 20 contratos perdidos son
+productos que el perfil de la empresa no menciona. Ver `docs/informes/fase5_diagnostico.md`.
 
 | Fase | Objetivo | Sesiones | Puerta de salida |
 |---|---|---|---|
@@ -12,7 +17,7 @@ Ninguna fase empieza sin que la anterior cumpla su criterio de salida.
 | 2 | Ingesta con trazabilidad | 2 | ✔ Cerrada el 25-09-2026: ingesta diaria idempotente desde n8n |
 | 3 | Verdad de referencia y baseline (el "antes") | 1–2 | ✔ Cerrada el 27-09-2026: recall del filtro CPV **79,7 %** |
 | 4 | Agente LangGraph v1 | 3 | ✔ Cerrada el 27-09-2026: **M5 = 100 %** (62/62) y D06 decidido |
-| 5 | Medición (el "después") | 2 | Informe M1–M8 reproducible con un comando |
+| 5 | Medición (el "después") | 2 | ✔ Cerrada el 28-09-2026: tesis **refutada**, informe reproducible |
 | 6 | Romperlo | 1–2 | Matriz de fallos: un test por fila, en verde |
 | 7 | Interfaz: correo y ficha | 1–2 | Correo diario real recibido |
 | 8 | Publicación | 1 | Repo público, README con límites, vídeo |
@@ -123,7 +128,7 @@ Informe en `docs/informes/fase4_agente.md`. Lo que **no** se consigue todavía: 
       «cumple lo económico, quedan N cosas por comprobar». Se deciden con M6, no antes
 - [ ] Ejecución sobre el periodo de test con Batch API (50 % más barato), con un presupuesto fijado de antemano
 - [x] M1, M2, M5, M7 y M8 automáticos, con intervalo por bootstrap pareado (`radar/evaluacion/agente.py`, `radar/evaluacion/trabajo.py`). **Medición a medias:** el tope diario cortó la tanda con 40 de los 77 contratos triados; se reanuda con el mismo comando
-- [ ] Completar M1 (faltan Empresas F y G) y M2 (faltan los no ganados de F y G)
+- [x] M1 y M2 completos: 517 triajes, los 77 contratos ganados de las cinco empresas de test
 - [ ] M6: tú etiquetas a ciegas una mezcla (agente, baseline, ambos); la herramienta oculta de dónde viene cada caso
 - [x] M7: **10,87 veces menos páginas** (4,7 señaladas frente a 51,5 del pliego) y un documento abierto en lugar de 4,3
 - [ ] M7b (opcional, solo si se hizo antes de la Fase 4): minutos cronometrados a mano frente a con el radar

@@ -167,7 +167,12 @@ flowchart TD
   qué casilla está marcada (verificado el 24-09-2026, decisión D21). Se leen como imagen las páginas
   con requisitos; cuando la marca no se distingue, el requisito va a "revisar", nunca se supone.
 - **Perfil declarativo:** el radar sabe de la empresa lo que dice su perfil. Si el perfil está mal,
-  la decisión también.
+  la decisión también. **Medido en la Fase 5, y es el límite que decide el resultado:** de los 20
+  contratos ganados que el agente descartó, **19 son productos o servicios que el perfil no menciona**.
+  Empresa G es partner de Autodesk según su web y ganó once contratos de licencias de Adobe y de
+  PRESTO; Empresa C dice integrar equipos de televisión y ganó contratos de CDN, DRM y analítica de
+  redes sociales. El triaje razonó bien sobre una descripción demasiado estrecha. El techo del radar
+  es el perfil, no el modelo (`docs/informes/fase5_diagnostico.md`).
 - **Los perfiles los escribió el modelo, no una persona** (cambio del 27-09-2026 en
   `docs/REGLA_SELECCION.md`). Salen solo de fuentes públicas sobre cada empresa y sin consultar ni un
   contrato, pero quedan más ordenados que el perfil que escribiría un cliente real, y eso **favorece

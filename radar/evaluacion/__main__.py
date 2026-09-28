@@ -30,6 +30,58 @@ ORDER BY metrica, variante, alias, calculada_en DESC
 """
 
 
+# Los contratos que la empresa gano de verdad y el triaje descarto, con el motivo que dio. Es
+# la parte mas util del informe cuando el resultado es malo: dice **donde** falla.
+FALLOS = """
+WITH publicadas AS (
+    SELECT entry_id FROM licitaciones
+    GROUP BY entry_id HAVING min(entry_updated) >= %s AND min(entry_updated) < %s
+), ganados AS (
+    SELECT DISTINCT p.alias, l.entry_id
+    FROM adjudicaciones a
+    JOIN licitaciones l ON l.id = a.licitacion
+    JOIN perfiles p ON p.nif = a.adjudicatario AND p.rol = 'test'
+    WHERE l.entry_updated < %s AND l.entry_id IN (SELECT entry_id FROM publicadas)
+)
+SELECT t.alias, l.objeto, t.motivo
+FROM triajes t
+JOIN licitaciones l ON l.id = t.licitacion
+JOIN ganados g ON g.alias = t.alias AND g.entry_id = l.entry_id
+WHERE t.decision = 'no'
+ORDER BY t.alias, l.objeto
+"""
+
+
+def fallos(conexion, desde: str, hasta: str, corte: str) -> list[tuple[str, str, str]]:
+    with conexion.cursor() as cur:
+        cur.execute(FALLOS, (desde, hasta, corte))
+        return cur.fetchall()
+
+
+def tabla_fallos(filas: list[tuple[str, str, str]], por_empresa: int = 4) -> list[str]:
+    """Los contratos perdidos, unos pocos por empresa, con el motivo que dio el triaje."""
+    if not filas:
+        return ["_El agente no descartó ningún contrato que la empresa ganara._", ""]
+    lineas = [
+        "| Empresa | Contrato que ganó y el agente descartó | Motivo que dio el agente |",
+        "|---|---|---|",
+    ]
+    vistos: dict[str, int] = {}
+    for alias, objeto, motivo in filas:
+        vistos[alias] = vistos.get(alias, 0) + 1
+        if vistos[alias] > por_empresa:
+            continue
+        objeto = " ".join((objeto or "").split())[:90]
+        motivo = " ".join((motivo or "").split())[:130]
+        lineas.append(f"| {alias} | {objeto} | {motivo} |")
+    resto = {a: n - por_empresa for a, n in vistos.items() if n > por_empresa}
+    if resto:
+        cola = ", ".join(f"{a}: {n} más" for a, n in sorted(resto.items()))
+        lineas += ["", f"Se muestran {por_empresa} por empresa. Hay {cola}."]
+    total = ", ".join(f"{a} {n}" for a, n in sorted(vistos.items()))
+    return lineas + ["", f"Contratos perdidos por empresa: {total}.", ""]
+
+
 def leer(conexion) -> list[dict]:
     campos = (
         "metrica",
@@ -134,7 +186,7 @@ def veredicto_global(filas: list[dict]) -> str:
     return "no concluyente"
 
 
-def escribir(filas: list[dict], destino: Path = DESTINO) -> Path:
+def escribir(filas: list[dict], destino: Path = DESTINO, perdidos: list | None = None) -> Path:
     m5 = de(filas, "M5")
     m7 = de(filas, "M7")
     m8 = de(filas, "M8")
@@ -229,7 +281,13 @@ def escribir(filas: list[dict], destino: Path = DESTINO) -> Path:
         ]
         if not hay
     ]
-    texto += ["## Lo que falta por medir", ""]
+    texto += [
+        "## Dónde falla: los contratos que la empresa ganó y el agente descartó",
+        "",
+        *tabla_fallos(perdidos or []),
+        "## Lo que falta por medir",
+        "",
+    ]
     texto += [f"- {nombre}" for nombre in faltan] or ["Nada: están las ocho."]
     texto += [
         "",
@@ -253,6 +311,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Regenera el informe de resultados")
     parser.add_argument("--informe", action="store_true")
     parser.add_argument("--destino", type=Path, default=DESTINO)
+    parser.add_argument("--desde", default="2025-01-01")
+    parser.add_argument("--hasta", default="2025-07-01")
+    parser.add_argument("--corte", default="2026-09-01")
     args = parser.parse_args()
     if not args.informe:
         parser.print_help()
@@ -260,9 +321,10 @@ def main() -> int:
     try:
         with conectar() as conexion:
             filas = leer(conexion)
-        if not filas:
-            raise ErrorRadar("La tabla eval_resultados está vacía: no hay nada que publicar.")
-        destino = escribir(filas, args.destino)
+            if not filas:
+                raise ErrorRadar("La tabla eval_resultados está vacía: no hay nada que publicar.")
+            perdidos = fallos(conexion, args.desde, args.hasta, args.corte)
+        destino = escribir(filas, args.destino, perdidos)
     except ErrorRadar as e:
         print(f"\n{e}")
         return 1

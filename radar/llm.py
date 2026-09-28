@@ -63,6 +63,60 @@ class ModeloDesconocido(ErrorRadar):
     """Un modelo sin precio en la tabla: no se puede saber lo que cuesta, así que no se usa."""
 
 
+class ModeloNoResponde(ErrorRadar):
+    """La API de Anthropic no contesta, o contesta un error. No es culpa de quien la usa."""
+
+
+# Lo que el SDK puede lanzar y qué se le dice a una persona. El orden importa: se coge el
+# primero que encaje, así que lo específico va antes que lo general.
+#
+# Sin esta traducción, un corte de red a mitad de una medición sube veinte líneas de traza de
+# httpx hasta la pantalla. Pasó el 27-09-2026 con 441 triajes ya hechos.
+FALLOS_DEL_SDK = (
+    (
+        "APIConnectionError",
+        "No se ha podido conectar con el modelo: puede ser la conexión a internet o que el "
+        "servicio esté caído un momento. No se ha gastado nada en esta llamada. Vuelve a "
+        "lanzar el mismo comando: continúa donde iba.",
+    ),
+    (
+        "RateLimitError",
+        "El modelo está recibiendo más peticiones de las que admite por minuto. No se ha "
+        "gastado nada en esta llamada. Espera un par de minutos y vuelve a lanzar el mismo "
+        "comando: continúa donde iba.",
+    ),
+    (
+        "AuthenticationError",
+        "El modelo ha rechazado la clave (ANTHROPIC_API_KEY del fichero .env). Comprueba que "
+        "es la clave correcta y que el saldo de la cuenta no está agotado.",
+    ),
+    (
+        "BadRequestError",
+        "El modelo ha rechazado la petición porque algo de lo que se le manda no le encaja. "
+        "Es un fallo del programa, no tuyo: el detalle queda apuntado en la tabla incidencias.",
+    ),
+    (
+        "APIStatusError",
+        "El modelo ha contestado con un error. No se ha gastado nada en esta llamada. Vuelve a "
+        "lanzar el mismo comando dentro de un rato: continúa donde iba.",
+    ),
+)
+
+
+def traducir_fallo(error: BaseException, nodo: str) -> ModeloNoResponde:
+    """Convierte un fallo del SDK en un mensaje para una persona, y manda la traza al log."""
+    from radar import incidencias
+
+    nombres = {clase.__name__ for clase in type(error).__mro__}
+    mensaje = next(
+        (texto for nombre, texto in FALLOS_DEL_SDK if nombre in nombres),
+        "El modelo no ha podido atender la petición. No se ha gastado nada en esta llamada. "
+        "Vuelve a lanzar el mismo comando: continúa donde iba.",
+    )
+    incidencias.apuntar("llm.llamar", f"Fallo de la API del modelo en el nodo {nodo}", error)
+    return ModeloNoResponde(mensaje, detalle=f"{type(error).__name__}: {error}")
+
+
 @dataclass
 class Uso:
     entrada: int = 0
@@ -289,7 +343,14 @@ def llamar(
     cambio, origen_cambio = tipo_de_cambio()
 
     with conectar() as conexion:
-        entrada_prevista = contar_tokens(modelo, mensajes, sistema, api)
+        try:
+            # Contar tokens tambien va por la red, y tambien se puede cortar. Es gratis, pero
+            # si falla hay que decirlo igual de bien.
+            entrada_prevista = contar_tokens(modelo, mensajes, sistema, api)
+        except ErrorRadar:
+            raise
+        except Exception as e:  # noqa: BLE001
+            raise traducir_fallo(e, nodo) from e
         previsto = Uso(entrada=entrada_prevista, salida=max_tokens)
         comprobar_presupuesto(conexion, coste_usd(modelo, previsto) * cambio)
 
@@ -308,7 +369,12 @@ def llamar(
             peticion["system"] = sistema
 
         arranque = time.monotonic()
-        respuesta = api.messages.create(**peticion)
+        try:
+            respuesta = api.messages.create(**peticion)
+        except ErrorRadar:
+            raise
+        except Exception as e:  # noqa: BLE001  cualquier fallo del SDK se traduce, no se muestra
+            raise traducir_fallo(e, nodo) from e
         latencia = int((time.monotonic() - arranque) * 1000)
 
         uso = Uso.de_la_respuesta(respuesta.usage)
