@@ -164,8 +164,13 @@ flowchart TD
 - **Solvencia con medios externos y UTE:** la ley permite acreditar solvencia con otras empresas.
   No se modela; los contratos ganados en UTE se excluyen de M3.
 - **Requisitos marcados con casillas:** los pliegos son formularios y el texto extraído no conserva
-  qué casilla está marcada (verificado el 24-09-2026, decisión D21). Se leen como imagen las páginas
-  con requisitos; cuando la marca no se distingue, el requisito va a "revisar", nunca se supone.
+  qué casilla está marcada (verificado el 24-09-2026, decisión D21). **La rama que manda esas páginas
+  al modelo como imagen no está construida** (comprobado en la Fase 6): hoy el radar lee el texto y
+  una casilla no se lee. Lo que sí está garantizado es que no se inventa su valor: toda extracción
+  lleva cita literal, y una cita que no aparezca en la página se descarta.
+- **Un pliego escaneado no se lee.** Si el PDF no trae capa de texto, el expediente sale como
+  "revisar" diciendo que es una imagen y que hay que mirarlo a mano. Es la misma rama de OCR que
+  falta en el punto anterior.
 - **Perfil declarativo:** el radar sabe de la empresa lo que dice su perfil. Si el perfil está mal,
   la decisión también. **Medido en la Fase 5, y es el límite que decide el resultado:** de los 20
   contratos ganados que el agente descartó, **19 son productos o servicios que el perfil no menciona**.

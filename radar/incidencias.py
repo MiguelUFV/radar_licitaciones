@@ -27,9 +27,7 @@ def apuntar(nodo: str, mensaje: str, error: BaseException | None = None) -> int 
     """Deja el fallo en `incidencias` con su traza. Devuelve el id, o None si no se pudo."""
     detalle = ""
     if error is not None:
-        detalle = "\n" + "".join(
-            traceback.format_exception(type(error), error, error.__traceback__)
-        )
+        detalle = "\n" + "".join(traceback.format_exception(type(error), error, error.__traceback__))
     texto = f"{mensaje}{detalle}"[:TOPE_DETALLE]
     try:
         with conectar() as conexion, conexion.cursor() as cur:
@@ -47,8 +45,7 @@ def apuntar(nodo: str, mensaje: str, error: BaseException | None = None) -> int 
 def ultimas(limite: int = 5) -> list[tuple]:
     with conectar() as conexion, conexion.cursor() as cur:
         cur.execute(
-            "SELECT id, ocurrida_en, nodo, mensaje FROM incidencias"
-            " ORDER BY ocurrida_en DESC LIMIT %s",
+            "SELECT id, ocurrida_en, nodo, mensaje FROM incidencias ORDER BY ocurrida_en DESC LIMIT %s",
             (limite,),
         )
         return cur.fetchall()

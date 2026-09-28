@@ -200,9 +200,7 @@ def localizar_anexo(datos: bytes, anexo: str, ya_leidas: set[int]) -> Localizaci
     candidatas = [
         (
             n,
-            puntuar(t) + PUNTOS["seccion"]
-            if patron.search(t) and documentos.CIFRA.search(t)
-            else 0,
+            puntuar(t) + PUNTOS["seccion"] if patron.search(t) and documentos.CIFRA.search(t) else 0,
         )
         for n, t in paginas
         if n not in ya_leidas

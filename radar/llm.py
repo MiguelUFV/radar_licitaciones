@@ -59,6 +59,16 @@ class RespuestaCortada(ErrorRadar):
     """El modelo se quedó sin tokens antes de escribir nada."""
 
 
+class ModeloSeNiega(ErrorRadar):
+    """El modelo se ha negado a contestar (`stop_reason == "refusal"`).
+
+    Pasa cuando algo del texto le parece que no debe tratar. Con un pliego es raro, pero un
+    pliego trae de todo: nombres, direcciones, a veces datos personales. Sin este caso, la
+    respuesta llega vacía y el nodo que la pidió seguiría como si el pliego no dijera nada,
+    que es el fallo silencioso que este proyecto no se permite (SPEC §8, fila 15).
+    """
+
+
 class ModeloDesconocido(ErrorRadar):
     """Un modelo sin precio en la tabla: no se puede saber lo que cuesta, así que no se usa."""
 
@@ -405,6 +415,13 @@ def llamar(
 
     if aviso:
         raise ErrorRadar(aviso, detalle=f"nodo={nodo} modelo={modelo} id={ficha['id']}")
+
+    if ficha["stop_reason"] == "refusal":
+        raise ModeloSeNiega(
+            "El modelo se ha negado a analizar este documento. No se descarta nada por eso: "
+            "el expediente queda para revisar a mano.",
+            detalle=f"nodo={nodo} modelo={modelo} request_id={ficha['request_id']}",
+        )
 
     # Opus 5 piensa por defecto, y el pensamiento gasta tokens de salida: con un max_tokens
     # corto se queda sin sitio y devuelve texto vacío. Se avisa, porque quien pidiera una

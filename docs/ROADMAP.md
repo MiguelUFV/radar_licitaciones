@@ -3,7 +3,7 @@
 Una sesión son unas 2–3 horas de trabajo con Claude Code. Total estimado: 14–18 sesiones.
 Ninguna fase empieza sin que la anterior cumpla su criterio de salida.
 
-**Fase activa: 6** (0 a 5 cerradas; informes en `docs/informes/`)
+**Fase activa: 7** (0 a 6 cerradas; informes en `docs/informes/`)
 
 **Resultado de la Fase 5: la tesis principal queda REFUTADA** frente al baseline derivado
 del perfil (−14,3 puntos, IC [−26,0, −3,9]) y no concluyente frente al filtro CPV 72/48
@@ -18,7 +18,7 @@ productos que el perfil de la empresa no menciona. Ver `docs/informes/fase5_diag
 | 3 | Verdad de referencia y baseline (el "antes") | 1–2 | ✔ Cerrada el 27-09-2026: recall del filtro CPV **79,7 %** |
 | 4 | Agente LangGraph v1 | 3 | ✔ Cerrada el 27-09-2026: **M5 = 100 %** (62/62) y D06 decidido |
 | 5 | Medición (el "después") | 2 | ✔ Cerrada el 28-09-2026: tesis **refutada**, informe reproducible |
-| 6 | Romperlo | 1–2 | Matriz de fallos: un test por fila, en verde |
+| 6 | Romperlo | 1–2 | ✔ Cerrada el 28-09-2026: 25 tests, **3 fallos reales encontrados** |
 | 7 | Interfaz: correo y ficha | 1–2 | Correo diario real recibido |
 | 8 | Publicación | 1 | Repo público, README con límites, vídeo |
 
@@ -140,11 +140,23 @@ Informe en `docs/informes/fase4_agente.md`. Lo que **no** se consigue todavía: 
 
 ## Fase 6 — Romperlo
 
-- [ ] Un test por fila de la matriz de fallos (SPEC §8)
-- [ ] Cada mensaje revisado: ¿lo entiende alguien no técnico?
-- [ ] Demostración de que cada test falla sin su arreglo (anotada en el commit)
+- [x] Un test por fila de la matriz de fallos (SPEC §8): `tests/test_fallos.py`, 25 tests
+- [x] Cada mensaje revisado, y en automático: un test recorre el paquete con el árbol de sintaxis y
+      le exige a **todas** las excepciones del radar castellano, frase entera y ninguna tripa dentro
+- [x] Demostración de que cada test falla sin su arreglo, anotada en el commit
 
-**Puerta:** `pytest tests/test_fallos.py` en verde y ningún camino muestra una traza al usuario.
+**Tres fallos reales encontrados al romperlo** (informe en `docs/informes/fase6_fallos.md`):
+
+1. **La ingesta diaria se habría comido su propia copia del feed.** La primera página tiene siempre
+   la misma URL y se reutilizaba del disco: del segundo día en adelante, cero licitaciones nuevas,
+   sin error y sin aviso.
+2. **Una sola entrada rota tumbaba la pasada entera.** La columna `cuarentena` existía desde la
+   primera migración y no había una línea que la escribiera.
+3. **`stop_reason == "refusal"` no estaba contemplado**: el texto llegaba vacío y el nodo seguía como
+   si el pliego no dijera nada.
+
+**Puerta (cumplida el 28-09-2026):** `uv run pytest tests/test_fallos.py` en verde y ningún camino
+muestra una traza al usuario.
 
 ## Fase 7 — Interfaz: correo y ficha
 

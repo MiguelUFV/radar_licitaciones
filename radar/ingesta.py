@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import re
 import subprocess
 import uuid
 from datetime import UTC, datetime
@@ -99,6 +100,54 @@ def guardar_entrada(conexion, sha256: str, posicion: int, lic: feed.Licitacion, 
         )
         fila = cur.fetchone()
         return fila[0] if fila else None
+
+
+# Marca de "esta entrada ya estaba": no es una fecha, así que no se confunde con un instante.
+ALCANZADO = object()
+
+
+def procesar_entrada(conexion, sha256, posicion, bloque, cursor_anterior, resumen):
+    """Una entrada del feed: a staging y al núcleo. Devuelve su instante, o ALCANZADO.
+
+    Sale aparte del bucle para que quepa en un punto de guardado propio: lo que falle aquí se
+    deshace sin arrastrar lo que ya se había ingerido de esa página.
+    """
+    lic = feed.parsear_entrada(bloque)
+    instante = feed.momento(lic.actualizada)
+    if es_anterior(lic.actualizada, cursor_anterior):
+        return ALCANZADO
+    stg_id = guardar_entrada(conexion, sha256, posicion, lic, bloque)
+    if stg_id is None:
+        resumen["ya_conocidas"] += 1
+        return instante
+    licitacion_id = guardar_licitacion(conexion, stg_id, lic)
+    if licitacion_id:
+        resumen["licitaciones_nuevas"] += 1
+        resumen["documentos"] += sum(1 for u in [lic.pcap, lic.ppt, *lic.anexos] if u)
+    else:
+        resumen["ya_conocidas"] += 1
+    return instante
+
+
+def identificador_de(bloque: str) -> str:
+    """El <id> de una entrada rota, si se le puede sacar. Es lo que permite buscarla luego."""
+    encontrado = re.search(r"<id>([^<]{1,300})</id>", bloque or "")
+    return encontrado.group(1).strip() if encontrado else "(sin id)"
+
+
+def en_cuarentena(conexion, sha256: str, posicion: int, bloque: str, error: Exception) -> None:
+    """Deja la entrada rota guardada con su XML y el motivo, para poder mirarla después.
+
+    No se tira: el XML original es la única forma de saber qué traía la Plataforma ese día.
+    """
+    motivo = f"{type(error).__name__}: {error}"[:500]
+    with conexion.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stg_entradas (raw_fichero, posicion, entry_id, entry_updated, xml,"
+            " estado_parseo, error) VALUES (%s, %s, %s, NULL, %s, 'cuarentena', %s)"
+            " ON CONFLICT (raw_fichero, coalesce(miembro, ''), posicion) DO NOTHING",
+            (sha256, posicion, identificador_de(bloque), bloque, motivo),
+        )
 
 
 def guardar_baja(conexion, baja: feed.Baja, sha256: str) -> None:
@@ -219,6 +268,7 @@ def ingerir(paginas_max: int, tipo: str = "manual", n8n_execution_id: str | None
         "documentos": 0,
         "bajas": 0,
         "desde_disco": 0,
+        "cuarentena": 0,
     }
     with conectar() as conexion:
         run_id = abrir_ejecucion(conexion, tipo, n8n_execution_id)
@@ -232,7 +282,17 @@ def ingerir(paginas_max: int, tipo: str = "manual", n8n_execution_id: str | None
             with crear_cliente() as cliente:
                 while url and resumen["paginas"] < paginas_max:
                     # Lo que ya bajó la Fase 1 se reutiliza: la ingesta no vuelve a pedirlo.
-                    guardado = almacen.buscar_por_url(url, MANIFIESTO, "fase1_feed")
+                    #
+                    # **Menos la primera página.** Su URL no cambia nunca y su contenido cambia
+                    # cada día, así que reutilizarla significaba ingerir todos los días el feed
+                    # del primer día: a partir del segundo, la ingesta diaria no habría visto
+                    # ni una licitación nueva. Las páginas siguientes sí llevan identificador
+                    # en la URL, y su contenido no cambia.
+                    guardado = (
+                        None
+                        if url == feed.FEED_PERFILES
+                        else almacen.buscar_por_url(url, MANIFIESTO, "fase1_feed")
+                    )
                     if guardado is not None:
                         contenido = guardado
                         resumen["desde_disco"] += 1
@@ -249,26 +309,27 @@ def ingerir(paginas_max: int, tipo: str = "manual", n8n_execution_id: str | None
                         resumen["bajas"] += 1
 
                     for posicion, bloque in enumerate(feed.entradas(xml)):
-                        lic = feed.parsear_entrada(bloque)
                         resumen["entradas_leidas"] += 1
-                        instante = feed.momento(lic.actualizada)
+                        try:
+                            # Cada entrada en su propio punto de guardado: si una está rota, se
+                            # deshace solo ella. Sin esto, una entrada mala de las miles que
+                            # publica la Plataforma tumbaba la pasada entera y ese día no se
+                            # ingería nada (SPEC §8, fila del XML malformado).
+                            with conexion.transaction():
+                                instante = procesar_entrada(
+                                    conexion, ficha["sha256"], posicion, bloque, cursor_anterior, resumen
+                                )
+                        except Exception as e:  # noqa: BLE001  la entrada rota no para la pasada
+                            en_cuarentena(conexion, ficha["sha256"], posicion, bloque, e)
+                            resumen["cuarentena"] += 1
+                            continue
+                        if instante is ALCANZADO:
+                            alcanzado = True
+                            continue
                         if instante and (mas_reciente is None or instante > mas_reciente):
                             mas_reciente = instante
                         if instante and (mas_antiguo is None or instante < mas_antiguo):
                             mas_antiguo = instante
-                        if es_anterior(lic.actualizada, cursor_anterior):
-                            alcanzado = True
-                            continue
-                        stg_id = guardar_entrada(conexion, ficha["sha256"], posicion, lic, bloque)
-                        if stg_id is None:
-                            resumen["ya_conocidas"] += 1
-                            continue
-                        licitacion_id = guardar_licitacion(conexion, stg_id, lic)
-                        if licitacion_id:
-                            resumen["licitaciones_nuevas"] += 1
-                            resumen["documentos"] += sum(1 for u in [lic.pcap, lic.ppt, *lic.anexos] if u)
-                        else:
-                            resumen["ya_conocidas"] += 1
 
                     conexion.commit()
                     resumen["paginas"] += 1
