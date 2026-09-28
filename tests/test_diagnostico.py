@@ -29,3 +29,26 @@ def test_el_diagnostico_lo_dice_con_claridad(monkeypatch):
     assert mensajes
     assert "no parece una clave" in mensajes[0]
     assert "sk-ant-" in mensajes[0]
+
+
+def test_avisa_si_la_regla_del_sorteo_ha_cambiado(bd, monkeypatch):
+    # `perfiles.regla_sha256` guarda la huella que tenía el documento el día del sorteo, y
+    # hasta el 29-09-2026 nadie la volvía a mirar. Un candado que no se comprueba no es un
+    # candado. Cambiarlo está permitido —con su entrada en Cambios—, así que esto avisa.
+    from radar import diagnostico, seleccion
+
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute(
+            "INSERT INTO perfiles (alias, nif, rol, adjudicaciones, de_informatica, semilla,"
+            " regla_sha256) VALUES ('Empresa A', 'B00000001', 'test', 1, 1, '1', repeat('a', 64))"
+        )
+        conexion.commit()
+
+    monkeypatch.setattr(seleccion, "huella_de_la_regla", lambda: "a" * 64)
+    correcto, mensaje = diagnostico.comprobar_regla_congelada()
+    assert correcto and "la misma" in mensaje
+
+    monkeypatch.setattr(seleccion, "huella_de_la_regla", lambda: "b" * 64)
+    correcto, mensaje = diagnostico.comprobar_regla_congelada()
+    assert not correcto
+    assert "Cambios" in mensaje and "Traceback" not in mensaje

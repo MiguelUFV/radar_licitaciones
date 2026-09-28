@@ -143,6 +143,36 @@ def comprobar_ejecuciones_abiertas() -> tuple[bool, str]:
     return True, "Ninguna ejecución colgada"
 
 
+def comprobar_regla_congelada() -> tuple[bool, str]:
+    """El documento con el que se sortearon las empresas, ¿sigue siendo el mismo?
+
+    `perfiles.regla_sha256` guarda la huella que tenía `docs/REGLA_SELECCION.md` el día del
+    sorteo. Hasta ahora nadie la volvía a mirar: un candado que no se comprueba no es un
+    candado. Cambiar ese documento está permitido —con su entrada en el apartado Cambios y
+    volviendo a medir lo que dependa de él—, así que esto avisa, no falla.
+    """
+    try:
+        from radar.bd import conectar
+        from radar.seleccion import huella_de_la_regla
+
+        actual = huella_de_la_regla()
+        with conectar() as conexion, conexion.cursor() as cur:
+            cur.execute("SELECT DISTINCT regla_sha256 FROM perfiles")
+            guardadas = {fila[0] for fila in cur.fetchall()}
+    except ErrorRadar as e:
+        return False, e.mensaje
+    if not guardadas:
+        return True, "Todavía no se ha sorteado ninguna empresa"
+    if actual in guardadas:
+        return True, "La regla de selección es la misma con la que se sortearon las empresas"
+    return False, (
+        "docs/REGLA_SELECCION.md ha cambiado desde que se sortearon las empresas "
+        f"({actual[:12]} ahora, {sorted(guardadas)[0][:12]} entonces). Si el cambio está "
+        "anotado en su apartado Cambios, es lo esperado; si no está, alguien lo tocó sin "
+        "dejarlo escrito y hay que averiguar qué se midió con qué."
+    )
+
+
 def main() -> int:
     print("Diagnóstico del entorno\n")
     problemas = 0
@@ -166,6 +196,10 @@ def main() -> int:
         correcto, mensaje = comprobacion()
         print(f"{OK if correcto else FALLO} {mensaje}")
         problemas += not correcto
+
+    # Avisos: cosas que hay que mirar pero que pueden ser correctas.
+    correcto, mensaje = comprobar_regla_congelada()
+    print(f"{OK if correcto else AVISO} {mensaje}")
 
     print()
     if problemas:
