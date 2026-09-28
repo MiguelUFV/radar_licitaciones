@@ -111,14 +111,57 @@ Lo que sí se puede hacer, por orden de lo que arreglaría:
 La 1 y la 2 no se pueden aplicar y volver a publicar sobre estas cinco empresas. Lo que se puede
 publicar hoy es esto, y decir por qué.
 
+## 5 bis. Lo que dice medir el volumen (M9 y M10, 29-09-2026)
+
+El apartado 4.2 dejaba una pregunta abierta: el agente entrega mucho menos papel que el
+Baseline B, y eso no lo pagaba nadie en la métrica. Se han definido dos métricas para
+contestarla —`docs/METRICA_EFICIENCIA.md`, escritas **después** de conocer M1 y con su regla de
+decisión fijada antes de calcular— y las cifras están en el informe de resultados. No rescatan
+nada, y de paso corrigen algo que este mismo documento afirmaba.
+
+**M9 (licitaciones que hay que revisar por cada contrato encontrado) dice que no.** La regla
+pedía que el agente ganara a los dos rivales en 3 de las 5 empresas. Gana en 2: Empresa C (171
+frente a 548 y 1.371) y Empresa F (152 frente a 783 y 6.170). En Empresa D, E y G el Baseline A
+encuentra un contrato revisando menos licitaciones que el agente.
+
+**Y aquí está la corrección.** El apartado 6 decía que «el filtro de entrada del agente es más
+selectivo que el rival». Es cierto frente al Baseline B, y **falso frente al Baseline A en 3 de
+las 5 empresas**: el Baseline A entrega 30,3 licitaciones al día para todas, y el agente entrega
+53,0 en Empresa D y G y 68,2 en Empresa E. El agente no es siempre el más selectivo; lo es con
+dos perfiles y no con los otros tres.
+
+**M10 (recall si todos entregaran el mismo volumen que el agente) dice otra cosa, y las dos son
+verdad.** Frente al Baseline B el agente gana en las cinco empresas, casi siempre por mucho:
+100 % frente a 2,5 % en Empresa F. Frente al Baseline A gana en cuatro de cinco y pierde en
+Empresa G.
+
+No es una contradicción, son dos preguntas distintas: M10 pregunta quién acierta más con el
+mismo trabajo, y M9 cuánto trabajo cuesta cada acierto. En Empresa D y E el agente tiene a la vez
+mejor recall y más volumen que el Baseline A, y M9 le penaliza el volumen de más por encima de lo
+que le premia el recall de más.
+
+**Lo que queda en pie, entonces:**
+
+- **El Baseline B compra su recall con volumen.** Entrega entre 4 y 36 veces más licitaciones, y
+  a igual volumen encuentra menos que el agente en las cinco empresas. Los 14 puntos con los que
+  gana M1 salen de repartir 288 licitaciones al día a una empresa que no las va a mirar.
+- **Frente al Baseline A —el filtro de CPV estándar— el agente no gana por ningún lado.** Ni en
+  recall (74,0 % contra 81,8 %, no concluyente), ni en eficiencia (pierde en 3 de 5). Esto es lo
+  más importante de todo el apartado y no estaba dicho hasta ahora.
+- **Sigue sin medirse M6**, que es lo único que diría si alguna de las dos listas sirve.
+
+Que la regla de decisión estuviera escrita antes es lo que hace que este apartado valga algo: el
+resultado salió en contra de quien lo escribió, otra vez, y se publica otra vez.
+
 ## 6. Qué queda de este proyecto entonces
 
 Lo medido y verificable, con la tesis principal refutada:
 
 - **La lectura del pliego funciona:** 100 % de las citas comprobadas (62 de 62), 4,7 páginas leídas de
   las 51,5 que tiene un pliego, 0,070 € por pliego. Eso no lo hace ningún filtro de CPV.
-- **El filtro de entrada del agente es más selectivo que el rival** (hasta 36 veces menos volumen) y
-  pierde 14 puntos de recall haciéndolo.
+- **El filtro de entrada del agente es más selectivo que el Baseline B** (hasta 36 veces menos
+  volumen) y pierde 14 puntos de recall haciéndolo. Frente al Baseline A **no** es más selectivo en
+  3 de las 5 empresas: lo corrige el apartado 5 bis con M9.
 - **La causa está identificada y medida**, no supuesta: 19 de 20 contratos perdidos son productos que
   el perfil de la empresa no menciona.
 - **La medición se reproduce con un comando** y cada cifra lleva su commit.

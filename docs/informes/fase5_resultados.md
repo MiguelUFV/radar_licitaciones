@@ -6,11 +6,11 @@
 uv run python -m radar.evaluacion --informe
 ```
 
-Regenerado el 28-09-2026 desde la tabla `eval_resultados`, sin
+Regenerado el 29-09-2026 desde la tabla `eval_resultados`, sin
 llamar a la API. El procedimiento estaba congelado antes de medir en
 `docs/PLAN_MEDICION.md`; los criterios, en `docs/SPEC.md` §6.
 
-Commits con los que se calcularon estas cifras: 8bfac44, 9961988, a8e6905, c32cd1a, efc752a.
+Commits con los que se calcularon estas cifras: 1934adf, 8bfac44, 9961988, a8e6905, c32cd1a, efc752a.
 
 ## La tesis
 
@@ -49,6 +49,42 @@ El recall se mide sobre **todos** los contratos ganados del periodo, no sobre un
 
 El volumen del agente es una **estimación** a partir de la muestra de no ganados
 (`docs/PLAN_MEDICION.md` §3).
+
+## M9 y M10 — lo que cuesta cada acierto
+
+**Estas dos métricas se definieron el 29-09-2026, después de conocer M1**
+(`docs/METRICA_EFICIENCIA.md`). No sustituyen a M1, que sigue refutada: van al lado.
+
+### M9 — licitaciones que hay que revisar por cada contrato encontrado
+
+| Empresa | **Agente** | Baseline A | Baseline B |
+|---|---|---|---|
+| Empresa C | **171** | 548 | 1371 |
+| Empresa D | **873** | 609 | 3016 |
+| Empresa E | **1028** | 609 | 1687 |
+| Empresa F | **152** | 783 | 6170 |
+| Empresa G | **565** | 196 | 1861 |
+
+Menos es mejor. No supone nada: es el volumen medido por el periodo, dividido entre los
+contratos que cada método encuentra.
+
+### M10 — recall si todos entregaran el mismo volumen que el agente
+
+| Empresa | **Agente** | Baseline A | Baseline B |
+|---|---|---|---|
+| Empresa C | **50.0 %** | 15.6 % | 6.2 % |
+| Empresa D | **100.0 %** | 81.8 % | 28.9 % |
+| Empresa E | **92.3 %** | 69.2 % | 56.2 % |
+| Empresa F | **100.0 %** | 19.4 % | 2.5 % |
+| Empresa G | **60.7 %** | 100.0 % | 18.4 % |
+
+**Con una suposición fuerte:** un filtro de CPV no ordena su lista, así que se supone que
+quien solo puede mirar una parte la mira **al azar** y que los aciertos están repartidos de
+forma uniforme. Si se concentraran en alguna parte de la lista, M10 infravaloraría al rival.
+
+Ninguna de las dos lleva intervalo de confianza, y no es un olvido: son cocientes de
+cantidades estimadas y un intervalo daría una precisión que no existe
+(`docs/METRICA_EFICIENCIA.md` §6).
 
 ## M5 — citas verificadas
 
