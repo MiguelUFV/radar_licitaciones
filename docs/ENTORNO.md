@@ -101,6 +101,10 @@ los datos en Postgres, está en el **5679**. Se pueden usar a la vez.
    - Recomendado: una cuenta de Gmail nueva, solo para el radar (no la personal ni la de la universidad).
    - Activa la verificación en dos pasos en esa cuenta y crea una contraseña de aplicación en
      [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
+     **Una contraseña de aplicación son 16 letras minúsculas en cuatro grupos** (`abcd efgh ijkl
+     mnop`). No es la contraseña de tu cuenta de Google: si has puesto esa, no va a funcionar
+     (Gmail la rechaza por SMTP con la verificación en dos pasos activada) y además no debería
+     salir de tu gestor de contraseñas.
    - En n8n: **Credentials → New → SMTP**: host `smtp.gmail.com`, puerto `465`, SSL activado,
      usuario = la cuenta, contraseña = la contraseña de aplicación.
    - Esta contraseña vive cifrada dentro de n8n, no en `.env`.
@@ -197,6 +201,8 @@ Todos se ejecutan en una terminal, dentro de la carpeta del proyecto.
 | Rehacer M5 sin volver a pagar | `uv run python -m radar.evaluacion.pliegos --solo-medir` |
 | Bajar los pliegos de lo que el triaje dejó pasar | `uv run python -m radar.pliegos --del-triaje --limite 120` |
 | Leer un solo expediente de punta a punta | `uv run python -m radar.grafo --licitacion 65034 --empresa "Empresa A"` |
+| Generar la ficha HTML de una licitación | `uv run python -m radar.ficha --licitacion 65034 --empresa "Empresa A"` |
+| Ver el correo del día sin enviarlo | `uv run python -m radar.correo --empresa "Empresa A"` |
 
 Arreglos que solo hacen falta si el diagnóstico los pide:
 

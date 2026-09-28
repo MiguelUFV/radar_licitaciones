@@ -160,14 +160,21 @@ muestra una traza al usuario.
 
 ## Fase 7 — Interfaz: correo y ficha
 
-- [ ] Contraseña de aplicación de Gmail y credencial SMTP en n8n (la creas tú, ENTORNO §6)
-- [ ] Nodo de correo en `radar_errores`: el aviso de fallo sale de la tabla `incidencias` (viene de la Fase 2, decisión D25)
-- [ ] Correo diario: resumen del día (N revisadas, N en la lista, coste del día) y una línea por licitación
-- [ ] Ficha HTML por licitación: requisitos, decisión, cita con página y enlace al PDF original
-- [ ] Diseño sobrio (tipografía, jerarquía, sin adornos); revisión con el skill `frontend-design`
-- [ ] (Opcional) Botones "me presento / no me presento" → webhook de n8n → tabla `feedback_usuario`
+- [ ] **Contraseña de aplicación de Gmail y credencial SMTP en n8n (la creas tú, ENTORNO §6).**
+      Es lo único que bloquea la fase. Son 16 letras minúsculas en cuatro grupos; la contraseña de
+      la cuenta de Google no sirve
+- [x] Nodo de correo en `radar_errores`: el aviso sale del texto ya guardado en `incidencias`, y
+      **después** de guardarlo, para que un fallo del correo no se lleve el aviso por delante (D25)
+- [x] Correo diario: `radar/correo.py` y `GET /correo/hoy`. El agente lo compone y n8n lo envía
+- [x] Ficha HTML por licitación: `radar/ficha.py`, con la cita, su página y el enlace al PDF
+- [x] Diseño sobrio, con el skill `frontend-design`: dos tipografías para dos voces (el pliego y el
+      radar), la página a la izquierda de una regla vertical, y el color marcando la comprobación y
+      no la decisión
+- [ ] (Opcional) Botones "me presento / no me presento" → webhook de n8n → tabla `feedback_usuario`.
+      **No se hace de momento:** con la tesis refutada hay cosas más útiles antes
 
-**Puerta:** correo real recibido durante 5 días laborables seguidos.
+**Puerta:** correo real recibido durante 5 días laborables seguidos. Informe del estado en
+`docs/informes/fase7_interfaz.md`.
 
 ## Fase 8 — Publicación
 

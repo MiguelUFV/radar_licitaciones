@@ -31,6 +31,37 @@ API_APAGADA = (
 # Dentro de la red de Docker, el servicio se llama por su nombre; no hace falta salir al host.
 URL_AGENTE = "http://agente:8000"
 
+# El correo. La contraseña de aplicación **no** está aquí ni en .env: vive cifrada dentro de
+# n8n, en una credencial SMTP que se crea una vez a mano (docs/ENTORNO.md §6). Aquí solo va su
+# nombre, que es lo que hay que elegir al importar el workflow.
+CREDENCIAL_SMTP = "SMTP del radar"
+
+
+def correo_de(variable: str, por_defecto: str = "") -> str:
+    load_dotenv()
+    return os.getenv(variable, por_defecto)
+
+
+def nodo_correo(nombre: str, identificador: str, posicion: list[int], asunto: str, cuerpo: str) -> dict:
+    """Un nodo de envío. El asunto y el cuerpo son expresiones de n8n, no texto fijo."""
+    return {
+        "parameters": {
+            "fromEmail": correo_de("CORREO_REMITENTE"),
+            "toEmail": correo_de("CORREO_DESTINO"),
+            "subject": asunto,
+            "emailFormat": "both",
+            "html": cuerpo,
+            "text": cuerpo.replace(".html", ".texto") if ".html" in cuerpo else cuerpo,
+            "options": {},
+        },
+        "id": identificador,
+        "name": nombre,
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2.1,
+        "position": posicion,
+        "credentials": {"smtp": {"name": CREDENCIAL_SMTP}},
+    }
+
 
 def cliente() -> httpx.Client:
     load_dotenv()
@@ -123,11 +154,21 @@ def workflow_errores(credencial: dict) -> dict:
                 "position": [240, 0],
                 "credentials": {"postgres": credencial},
             },
+            nodo_correo(
+                "Avisar por correo",
+                "avisar",
+                [480, 0],
+                "=Radar de licitaciones: algo ha fallado esta noche",
+                # El texto que se envía es el mismo que se guardó en incidencias: en castellano
+                # y sin trazas. Si el mensaje no llegara, la incidencia sigue en la tabla.
+                "={{ $json.mensaje }}",
+            ),
         ],
         "connections": {
             "Cuando falla un workflow del radar": {
                 "main": [[{"node": "Anotar la incidencia", "type": "main", "index": 0}]]
-            }
+            },
+            "Anotar la incidencia": {"main": [[{"node": "Avisar por correo", "type": "main", "index": 0}]]},
         },
     }
 
@@ -198,6 +239,28 @@ def workflow_diario(errores_id: str | None = None) -> dict:
                 "typeVersion": 4.2,
                 "position": [660, 0],
             },
+            {
+                "parameters": {
+                    "url": f"{URL_AGENTE}/correo/hoy",
+                    "sendQuery": True,
+                    "queryParameters": {
+                        "parameters": [{"name": "empresa", "value": correo_de("CORREO_EMPRESA", "Empresa A")}]
+                    },
+                    "options": {"timeout": 60000},
+                },
+                "id": "componer",
+                "name": "Pedir el correo del dia",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [880, 0],
+            },
+            nodo_correo(
+                "Enviar el correo del dia",
+                "enviar",
+                [1100, 0],
+                "={{ $json.asunto }}",
+                "={{ $json.html }}",
+            ),
         ],
         "connections": {
             "Cada dia laborable a las 07:00": {
@@ -208,6 +271,12 @@ def workflow_diario(errores_id: str | None = None) -> dict:
             },
             "Ingerir el feed": {
                 "main": [[{"node": "Bajar los pliegos pendientes", "type": "main", "index": 0}]]
+            },
+            "Bajar los pliegos pendientes": {
+                "main": [[{"node": "Pedir el correo del dia", "type": "main", "index": 0}]]
+            },
+            "Pedir el correo del dia": {
+                "main": [[{"node": "Enviar el correo del dia", "type": "main", "index": 0}]]
             },
         },
     }

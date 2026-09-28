@@ -38,6 +38,30 @@
           "name": "radar_postgres"
         }
       }
+    },
+    {
+      "parameters": {
+        "fromEmail": "",
+        "toEmail": "",
+        "subject": "=Radar de licitaciones: algo ha fallado esta noche",
+        "emailFormat": "both",
+        "html": "={{ $json.mensaje }}",
+        "text": "={{ $json.mensaje }}",
+        "options": {}
+      },
+      "id": "avisar",
+      "name": "Avisar por correo",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        480,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "name": "SMTP del radar"
+        }
+      }
     }
   ],
   "connections": {
@@ -46,6 +70,17 @@
         [
           {
             "node": "Anotar la incidencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anotar la incidencia": {
+      "main": [
+        [
+          {
+            "node": "Avisar por correo",
             "type": "main",
             "index": 0
           }

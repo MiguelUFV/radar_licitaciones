@@ -89,3 +89,17 @@ def resumen_hoy() -> dict:
         "fin": fila[2].isoformat() if fila[2] else None,
         "licitaciones_ingeridas": nuevas,
     }
+
+
+@app.get("/correo/hoy")
+def correo_hoy(empresa: str, fecha: str | None = None) -> dict:
+    """El correo del día ya compuesto: asunto, HTML y texto.
+
+    El agente escribe el correo y n8n lo envía (D25). Aquí no hay credenciales de ningún tipo:
+    si alguien llega a este endpoint, lo más que ve es lo que el radar ha decidido hoy.
+    """
+    from datetime import date
+
+    from radar import correo
+
+    return correo.del_correo(empresa, date.fromisoformat(fecha) if fecha else None)

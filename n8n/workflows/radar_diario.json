@@ -2,8 +2,7 @@
   "name": "radar_diario",
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Europe/Madrid",
-    "errorWorkflow": "sxeZDaAu4WlGZqoq"
+    "timezone": "Europe/Madrid"
   },
   "nodes": [
     {
@@ -81,6 +80,55 @@
         660,
         0
       ]
+    },
+    {
+      "parameters": {
+        "url": "http://agente:8000/correo/hoy",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "empresa",
+              "value": "Empresa A"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "componer",
+      "name": "Pedir el correo del dia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "",
+        "toEmail": "",
+        "subject": "={{ $json.asunto }}",
+        "emailFormat": "both",
+        "html": "={{ $json.html }}",
+        "text": "={{ $json.texto }}",
+        "options": {}
+      },
+      "id": "enviar",
+      "name": "Enviar el correo del dia",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "name": "SMTP del radar"
+        }
+      }
     }
   ],
   "connections": {
@@ -111,6 +159,28 @@
         [
           {
             "node": "Bajar los pliegos pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bajar los pliegos pendientes": {
+      "main": [
+        [
+          {
+            "node": "Pedir el correo del dia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir el correo del dia": {
+      "main": [
+        [
+          {
+            "node": "Enviar el correo del dia",
             "type": "main",
             "index": 0
           }
