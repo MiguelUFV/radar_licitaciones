@@ -1,8 +1,8 @@
 # Fase 7 — Correo y ficha
 
-Estado al 28-09-2026: **la fase no está cerrada**, y no lo está por un motivo que no depende del
-código. Su puerta de salida es «correo real recibido durante 5 días laborables seguidos», y para eso
-hacen falta dos cosas que tiene que poner Miguel: una contraseña de aplicación de Gmail y cinco días.
+Estado al 28-09-2026: **el correo funciona y la fase sigue abierta**, porque su puerta de salida es
+«correo real recibido durante 5 días laborables seguidos» y eso solo lo cierra el calendario. El
+primer correo real salió el 28-09-2026.
 
 Lo que sí está hecho y se puede ver hoy:
 
@@ -63,20 +63,32 @@ Ninguna contraseña viaja en esos ficheros: la credencial se referencia por su n
 radar`) y la contraseña vive cifrada dentro de n8n. Hay un test que recorre las definiciones buscando
 cualquier cosa que parezca una contraseña.
 
-## 4. Lo que falta, y es tuyo
+## 4. Comprobado de extremo a extremo el 28-09-2026
 
-1. **Una contraseña de aplicación de Gmail**, en una cuenta nueva dedicada al radar
-   (`docs/ENTORNO.md` §6). Son **16 letras minúsculas en cuatro grupos**; la contraseña de tu cuenta
-   de Google no sirve, Gmail la rechaza por SMTP cuando hay verificación en dos pasos.
-2. **La credencial SMTP en n8n**, creada una vez a mano: host `smtp.gmail.com`, puerto `465`, SSL.
-   Al importar los workflows hay que elegirla en los dos nodos de correo.
-3. **`CORREO_REMITENTE`, `CORREO_DESTINO` y `CORREO_EMPRESA` en `.env`**, que son direcciones, no
-   secretos.
-4. **Cinco días laborables** con el ordenador encendido a las 07:00.
+La credencial SMTP existe en n8n (`SMTP del radar`) y el correo **ha salido de verdad**: se disparó
+`radar_prueba_correo` y la ejecución terminó en `success`. Asunto recibido: «Radar de licitaciones ·
+28-09: nada nuevo», que es el caso de un día sin pliegos leídos.
 
-Hasta entonces el correo se puede leer sin enviarlo con `uv run python -m radar.correo`.
+Dos cosas que aparecieron al probarlo:
 
-## 5. Lo que queda fuera de esta fase
+1. **El primer intento falló con un 404.** El contenedor del agente llevaba el código de antes de que
+   existiera `/correo/hoy`: n8n hablaba con una versión vieja. Es la segunda vez que pasa, así que
+   ahora está en `docs/ENTORNO.md` §10 con su comando (`docker compose up -d --build agente`).
+2. **El webhook de prueba se ha desactivado** después de comprobarlo. Un webhook que manda correos y
+   que nadie vigila no tiene por qué quedarse encendido; para volver a probar, se activa, se lanza y
+   se apaga.
+
+La cuenta usada es la personal, con contraseña de aplicación, y por qué está en la decisión D37.
+
+## 5. Lo que falta, y es tuyo
+
+Solo queda una cosa, y es tiempo: **cinco días laborables seguidos** con el ordenador encendido a
+las 07:00 y el correo llegando. Eso cierra la fase.
+
+Mientras tanto, el correo de cualquier día se puede leer sin enviarlo:
+`uv run python -m radar.correo --empresa "Empresa A"`.
+
+## 6. Lo que queda fuera de esta fase
 
 - **Los botones «me presento / no me presento»** (opcional en el ROADMAP). No están. Necesitan un
   webhook de n8n y una tabla `feedback_usuario`, y con el resultado de la Fase 5 —la tesis refutada—

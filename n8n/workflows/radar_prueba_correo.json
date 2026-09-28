@@ -1,0 +1,98 @@
+{
+  "name": "radar_prueba_correo",
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Madrid"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "radar-prueba-correo",
+        "options": {}
+      },
+      "id": "disparo",
+      "name": "Prueba de correo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://agente:8000/correo/hoy",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "empresa",
+              "value": "Empresa A"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "componer",
+      "name": "Pedir el correo del dia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "miguelmartincaro@gmail.com",
+        "toEmail": "miguelmartincaro@gmail.com",
+        "subject": "={{ $json.asunto }}",
+        "emailFormat": "both",
+        "html": "={{ $json.html }}",
+        "text": "={{ $json.texto }}",
+        "options": {}
+      },
+      "id": "enviar",
+      "name": "Enviar la prueba",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "U6ldV9fue02O9Iso",
+          "name": "SMTP del radar"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Prueba de correo": {
+      "main": [
+        [
+          {
+            "node": "Pedir el correo del dia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir el correo del dia": {
+      "main": [
+        [
+          {
+            "node": "Enviar la prueba",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

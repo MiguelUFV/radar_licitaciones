@@ -35,6 +35,18 @@ URL_AGENTE = "http://agente:8000"
 # n8n, en una credencial SMTP que se crea una vez a mano (docs/ENTORNO.md §6). Aquí solo va su
 # nombre, que es lo que hay que elegir al importar el workflow.
 CREDENCIAL_SMTP = "SMTP del radar"
+FICHA_SMTP = CARPETA / "credencial_smtp.json"
+
+
+def credencial_smtp() -> dict:
+    """El id y el nombre de la credencial de correo. La contraseña vive dentro de n8n.
+
+    Si el fichero no está, se referencia solo por el nombre: al importar el workflow habrá que
+    elegirla a mano una vez. La contraseña de aplicación no pasa por aquí nunca.
+    """
+    if FICHA_SMTP.exists():
+        return json.loads(FICHA_SMTP.read_text(encoding="utf-8"))
+    return {"name": CREDENCIAL_SMTP}
 
 
 def correo_de(variable: str, por_defecto: str = "") -> str:
@@ -59,7 +71,7 @@ def nodo_correo(nombre: str, identificador: str, posicion: list[int], asunto: st
         "type": "n8n-nodes-base.emailSend",
         "typeVersion": 2.1,
         "position": posicion,
-        "credentials": {"smtp": {"name": CREDENCIAL_SMTP}},
+        "credentials": {"smtp": credencial_smtp()},
     }
 
 
@@ -282,6 +294,60 @@ def workflow_diario(errores_id: str | None = None) -> dict:
     }
 
 
+def workflow_prueba_correo() -> dict:
+    """Un workflow de una sola tirada para comprobar que el correo sale de verdad.
+
+    Existe porque la alternativa era lanzar el trabajo diario entero —ingesta incluida— solo para
+    ver si el SMTP funciona. Se dispara con:
+
+        curl -X POST http://localhost:5679/webhook/radar-prueba-correo
+
+    El webhook escucha solo en el ordenador, igual que el resto del radar (SPEC §9). Aun así,
+    después de comprobarlo se desactiva: un webhook que manda correos y que nadie vigila no tiene
+    por qué quedarse encendido.
+    """
+    return {
+        "name": "radar_prueba_correo",
+        "settings": {"executionOrder": "v1", "timezone": "Europe/Madrid"},
+        "nodes": [
+            {
+                "parameters": {"httpMethod": "POST", "path": "radar-prueba-correo", "options": {}},
+                "id": "disparo",
+                "name": "Prueba de correo",
+                "type": "n8n-nodes-base.webhook",
+                "typeVersion": 2,
+                "position": [0, 0],
+            },
+            {
+                "parameters": {
+                    "url": f"{URL_AGENTE}/correo/hoy",
+                    "sendQuery": True,
+                    "queryParameters": {
+                        "parameters": [{"name": "empresa", "value": correo_de("CORREO_EMPRESA", "Empresa A")}]
+                    },
+                    "options": {"timeout": 60000},
+                },
+                "id": "componer",
+                "name": "Pedir el correo del dia",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [220, 0],
+            },
+            nodo_correo(
+                "Enviar la prueba",
+                "enviar",
+                [440, 0],
+                "={{ $json.asunto }}",
+                "={{ $json.html }}",
+            ),
+        ],
+        "connections": {
+            "Prueba de correo": {"main": [[{"node": "Pedir el correo del dia", "type": "main", "index": 0}]]},
+            "Pedir el correo del dia": {"main": [[{"node": "Enviar la prueba", "type": "main", "index": 0}]]},
+        },
+    }
+
+
 def comprobar_api(api: httpx.Client) -> None:
     """Distingue "la API está apagada" de "la clave no vale", que dan el mismo código.
 
@@ -323,9 +389,10 @@ def main() -> int:
     args = parser.parse_args()
 
     if not args.publicar:
-        # Sin conexión con n8n solo se puede exportar el diario: el de errores necesita el
-        # identificador de la credencial.
-        print(f"Exportado a {exportar(workflow_diario())}")
+        # Sin conexión con n8n solo se pueden exportar los que no necesitan el identificador de
+        # la credencial de Postgres; el de errores sí lo necesita.
+        for definicion in (workflow_diario(), workflow_prueba_correo()):
+            print(f"Exportado a {exportar(definicion)}")
         return 0
 
     try:
@@ -333,14 +400,24 @@ def main() -> int:
             credencial = credencial_postgres(api)
         errores = publicar(workflow_errores(credencial), activar=True)
         diario = publicar(workflow_diario(errores["id"]), activar=True)
+        # La prueba de correo se publica activa porque su webhook solo responde si lo está;
+        # se apaga en cuanto se ha comprobado que el correo sale (--apagar-prueba).
+        prueba = publicar(workflow_prueba_correo(), activar=True)
     except FaltaConfiguracion as e:
         print(e)
         return 1
 
-    for definicion in (workflow_errores(credencial), workflow_diario(errores["id"])):
+    for definicion in (
+        workflow_errores(credencial),
+        workflow_diario(errores["id"]),
+        workflow_prueba_correo(),
+    ):
         print(f"Exportado a {exportar(definicion)}")
     print(f"Publicado en n8n: {errores['name']} (id {errores['id']})")
     print(f"Publicado en n8n: {diario['name']} (id {diario['id']}), avisos a {errores['name']}")
+    print(f"Publicado en n8n: {prueba['name']} (id {prueba['id']})")
+    print("\nPara comprobar que el correo sale:")
+    print("  curl -X POST http://localhost:5679/webhook/radar-prueba-correo")
     return 0
 
 

@@ -160,9 +160,11 @@ muestra una traza al usuario.
 
 ## Fase 7 — Interfaz: correo y ficha
 
-- [ ] **Contraseña de aplicación de Gmail y credencial SMTP en n8n (la creas tú, ENTORNO §6).**
-      Es lo único que bloquea la fase. Son 16 letras minúsculas en cuatro grupos; la contraseña de
-      la cuenta de Google no sirve
+- [x] Contraseña de aplicación y credencial SMTP en n8n, hechas el 28-09-2026. Se usa la cuenta
+      personal porque Google no dejó crear una dedicada (D37)
+- [x] **Primer correo real enviado y recibido el 28-09-2026.** El workflow `radar_prueba_correo`
+      terminó en `success`. Falla previa: el contenedor del agente llevaba código viejo y devolvía
+      404; reconstruido, y anotado en ENTORNO §10
 - [x] Nodo de correo en `radar_errores`: el aviso sale del texto ya guardado en `incidencias`, y
       **después** de guardarlo, para que un fallo del correo no se lleve el aviso por delante (D25)
 - [x] Correo diario: `radar/correo.py` y `GET /correo/hoy`. El agente lo compone y n8n lo envía

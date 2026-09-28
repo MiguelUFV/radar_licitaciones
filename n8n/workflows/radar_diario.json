@@ -2,7 +2,8 @@
   "name": "radar_diario",
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Europe/Madrid"
+    "timezone": "Europe/Madrid",
+    "errorWorkflow": "sxeZDaAu4WlGZqoq"
   },
   "nodes": [
     {
@@ -108,8 +109,8 @@
     },
     {
       "parameters": {
-        "fromEmail": "",
-        "toEmail": "",
+        "fromEmail": "miguelmartincaro@gmail.com",
+        "toEmail": "miguelmartincaro@gmail.com",
         "subject": "={{ $json.asunto }}",
         "emailFormat": "both",
         "html": "={{ $json.html }}",
@@ -126,6 +127,7 @@
       ],
       "credentials": {
         "smtp": {
+          "id": "U6ldV9fue02O9Iso",
           "name": "SMTP del radar"
         }
       }

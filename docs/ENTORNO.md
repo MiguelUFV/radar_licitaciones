@@ -205,6 +205,7 @@ Todos se ejecutan en una terminal, dentro de la carpeta del proyecto.
 | Leer un solo expediente de punta a punta | `uv run python -m radar.grafo --licitacion 65034 --empresa "Empresa A"` |
 | Generar la ficha HTML de una licitación | `uv run python -m radar.ficha --licitacion 65034 --empresa "Empresa A"` |
 | Ver el correo del día sin enviarlo | `uv run python -m radar.correo --empresa "Empresa A"` |
+| **Después de cambiar código que n8n vaya a llamar** | `docker compose up -d --build agente` |
 
 Arreglos que solo hacen falta si el diagnóstico los pide:
 
@@ -212,6 +213,10 @@ Arreglos que solo hacen falta si el diagnóstico los pide:
 |---|---|
 | Seudonimizar DNI que quedaran en claro | `uv run python -m radar.personas --anonimizar` |
 | Traducir los códigos del XML (`&quot;`) | `uv run python -m radar.reparar --textos` |
+
+**El contenedor del agente no se entera solo de los cambios.** Lleva el código copiado dentro, así
+que si tocas `radar/` y no lo reconstruyes, n8n sigue hablando con la versión vieja. Ha pasado dos
+veces: el 26-09 con `SAL_PERSONAS` y el 28-09 con `/correo/hoy`, que devolvía 404 y tumbaba el envío.
 
 **Si algo se queda colgado:** los procesos largos son reanudables. Se lanzan otra vez con el mismo
 comando y siguen donde estaban, sin volver a descargar lo que ya tienen.
