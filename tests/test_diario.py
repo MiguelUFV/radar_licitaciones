@@ -771,3 +771,51 @@ def test_leer_dos_veces_el_mismo_pliego_no_duplica_los_requisitos(bd, entorno, m
     with bd() as conexion, conexion.cursor() as cur:
         cur.execute("SELECT count(*) FROM requisitos")
         assert cur.fetchone()[0] == 1
+
+
+def test_la_manana_baja_los_pliegos_de_lo_que_acaba_de_triar(bd, entorno, monkeypatch):
+    """Sin esto, el primer día de un cliente se tría y no se lee nada.
+
+    El workflow baja pliegos **antes** del triaje, así que el día 1 no hay ningún candidato del
+    que bajar nada, y las candidatas de hoy no tendrían pliego hasta mañana. La mañana cierra
+    el círculo: tría, baja lo que ha pasado el filtro y lo lee.
+    """
+    clientes.dar_de_alta({**CLIENTE, "tope_diario_eur": "1.00"})
+    pedidos = []
+    monkeypatch.setattr(
+        diario.pliegos,
+        "descargar_pendientes",
+        lambda **kw: pedidos.append(kw) or {"descargados": 2, "desde_disco": 1},
+    )
+    monkeypatch.setattr(diario, "leer_pliegos", lambda *a, **kw: {"leidos": 0, "coste_eur": 0.0})
+    with bd() as conexion:
+        licitacion(conexion, 1)
+        conexion.commit()
+        empresa = empresas.la_de(conexion, "Empresa del Norte")
+        hecho = diario.de_una_empresa(conexion, empresa, None, date.today(), api=ApiFalsa())
+    assert hecho["pliegos_bajados"] == 3
+    assert pedidos[0]["del_triaje"] is True, "solo lo que el triaje ha dejado pasar"
+    # Con 1 € de tope y la reserva inicial de 0,15 €, caben seis pliegos: no se bajan más.
+    assert 0 < pedidos[0]["limite"] <= 7
+
+
+def test_si_la_plataforma_no_contesta_se_leen_los_pliegos_que_ya_estan(bd, entorno, monkeypatch):
+    clientes.dar_de_alta(CLIENTE)
+
+    def no_contesta(**kw):
+        from radar.errores import FuenteNoResponde
+
+        raise FuenteNoResponde("La Plataforma de Contratación no responde.")
+
+    monkeypatch.setattr(diario.pliegos, "descargar_pendientes", no_contesta)
+    monkeypatch.setattr(diario, "leer_pliegos", lambda *a, **kw: {"leidos": 1, "coste_eur": 0.08})
+    with bd() as conexion:
+        licitacion(conexion, 1)
+        conexion.commit()
+        empresa = empresas.la_de(conexion, "Empresa del Norte")
+        hecho = diario.de_una_empresa(conexion, empresa, None, date.today(), api=ApiFalsa())
+        assert hecho["pliegos_bajados"] == 0
+        assert hecho["leidos"] == 1, "lo que ya estaba bajado se lee igual"
+        with conexion.cursor() as cur:
+            cur.execute("SELECT count(*) FROM incidencias WHERE nodo = 'diario'")
+            assert cur.fetchone()[0] == 1

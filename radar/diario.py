@@ -30,7 +30,7 @@ from __future__ import annotations
 import argparse
 from datetime import date
 
-from radar import empresas, incidencias, llm, prompts, triaje
+from radar import empresas, incidencias, llm, pliegos, prompts, triaje
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 from radar.grafo import analizar, checkpointer_de_postgres, coste_de
@@ -241,6 +241,36 @@ def leer_pliegos(conexion, empresa: dict, run_id, tope: float, gastado: float, g
     return hecho
 
 
+def cuantos_caben(conexion, queda: float) -> int:
+    """Cuántos pliegos paga lo que queda del tope."""
+    reserva = reserva_por_pliego(conexion)
+    return max(0, int(queda / reserva)) if reserva > 0 else 0
+
+
+def bajar_lo_que_se_va_a_leer(cuantos: int) -> int:
+    """Baja el PDF de las candidatas antes de intentar leerlas. No cuesta dinero: es descarga.
+
+    Sin este paso, la primera mañana de un cliente triaba y no leía nada. El workflow baja
+    pliegos **antes** del triaje, así que el día 1 no hay ningún candidato del que bajar nada y
+    las candidatas de hoy no tienen pliego hasta mañana. Aquí se cierra el círculo dentro de la
+    misma mañana: se tría, se baja lo que ha pasado el filtro y se lee.
+
+    Se baja solo lo que el tope va a poder leer. Bajar más es tiempo y ancho de banda de la
+    Plataforma de Contratación para nada.
+    """
+    if cuantos <= 0:
+        return 0
+    try:
+        resumen = pliegos.descargar_pendientes(
+            limite=cuantos, tipo="PCAP", tipo_ejecucion="diaria", del_triaje=True
+        )
+    except ErrorRadar as e:
+        # Que la Plataforma no conteste no puede impedir leer los pliegos que ya están bajados.
+        incidencias.apuntar("diario", f"No se pudieron bajar pliegos: {e.mensaje}", e)
+        return 0
+    return resumen["descargados"] + resumen["desde_disco"]
+
+
 def de_una_empresa(conexion, empresa: dict, run_id, dia: date, guardado=None, api=None) -> dict:
     """La mañana de un cliente: triar lo nuevo y leer lo que dé su tope."""
     # Aquí, y no al hacer la lista: si el texto está tocado, lo paga esta empresa y no las otras.
@@ -253,8 +283,10 @@ def de_una_empresa(conexion, empresa: dict, run_id, dia: date, guardado=None, ap
         return resumen
     triado = triar_lo_nuevo(conexion, empresa, run_id, tope, gastado, api=api)
     gastado += triado["coste_eur"]
+    bajados = bajar_lo_que_se_va_a_leer(cuantos_caben(conexion, tope - gastado))
     leido = leer_pliegos(conexion, empresa, run_id, tope, gastado, guardado)
     resumen.update(triado)
+    resumen["pliegos_bajados"] = bajados
     resumen["leidos"] = leido["leidos"]
     resumen["coste_eur"] = round(triado["coste_eur"] + leido["coste_eur"], 4)
     parado = triado.get("parado") or leido.get("parado")

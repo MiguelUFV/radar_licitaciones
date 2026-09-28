@@ -59,3 +59,25 @@ def test_volver_a_pasarlo_no_cambia_nada(bd):
 
     reparar.limpiar_textos()
     assert reparar.limpiar_textos()["licitaciones"] == 0
+
+
+def test_una_ejecucion_cortada_se_cierra_diciendo_que_se_corto(bd):
+    # El diagnóstico avisa de las ejecuciones que se quedaron a medias y no había forma de
+    # cerrarlas: pedía arreglar algo a mano sin decir cómo. Ahora se cierran como lo que son,
+    # un error, sin tocar las que siguen vivas de verdad.
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute(
+            "INSERT INTO ejecuciones (run_id, tipo, inicio) VALUES"
+            " (gen_random_uuid(), 'evaluacion', now() - interval '6 hours'),"
+            " (gen_random_uuid(), 'diaria', now() - interval '5 minutes')"
+        )
+        conexion.commit()
+
+    assert reparar.cerrar_cortadas(horas=2) == 1
+
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT tipo, estado, mensaje FROM ejecuciones ORDER BY inicio")
+        cortada, viva = cur.fetchall()
+    assert cortada[1] == "error" and "cortó" in cortada[2]
+    assert viva[1] == "en_curso", "una que acaba de empezar no se toca"
+    assert reparar.cerrar_cortadas(horas=2) == 0

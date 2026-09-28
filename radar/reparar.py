@@ -5,6 +5,7 @@ sigue mal. Aquí viven esos arreglos, cada uno con la fecha y el motivo, para no
 volver a procesar cientos de miles de entradas.
 
     uv run python -m radar.reparar --textos
+    uv run python -m radar.reparar --ejecuciones
 """
 
 from __future__ import annotations
@@ -55,20 +56,47 @@ def limpiar_textos(por_lotes: int = 5000) -> dict:
     return cambiados
 
 
+# Una ejecución que se corta —se cae el proceso, se cierra el portátil— se queda «en_curso»
+# para siempre. `radar.diagnostico` avisaba de ellas y no había forma de cerrarlas: pedía
+# arreglar algo a mano sin decir cómo. Se cierran como lo que son, un error, y no se borran:
+# el rastro de que aquella pasada existió y no terminó es justamente lo que interesa.
+CORTADAS = """
+UPDATE ejecuciones
+SET fin = now(), estado = 'error',
+    mensaje = coalesce(mensaje || ' ', '') ||
+              'La pasada se cortó y nadie la cerró; la cerró radar.reparar.'
+WHERE fin IS NULL AND inicio < now() - make_interval(hours => %s)
+"""
+
+
+def cerrar_cortadas(horas: int = 2) -> int:
+    """Cierra las ejecuciones que llevan más de `horas` sin terminar. Devuelve cuántas."""
+    with conectar() as conexion, conexion.cursor() as cur:
+        cur.execute(CORTADAS, (horas,))
+        cuantas = cur.rowcount
+        conexion.commit()
+    return cuantas
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Arreglos de datos ya guardados")
-    parser.add_argument("--textos", action="store_true", help="traduce los códigos del XML (&quot; y demás)")
+    parser.add_argument("--textos", action="store_true", help="traduce los códigos del XML")
+    parser.add_argument(
+        "--ejecuciones", action="store_true", help="cierra las pasadas que se quedaron a medias"
+    )
     args = parser.parse_args()
-    if not args.textos:
+    if not (args.textos or args.ejecuciones):
         parser.print_help()
         return 0
     try:
-        resumen = limpiar_textos()
+        if args.ejecuciones:
+            print(f"ejecuciones cortadas que se han cerrado: {cerrar_cortadas()}")
+        if args.textos:
+            for tabla, cuantos in limpiar_textos().items():
+                print(f"{tabla}: {cuantos} textos arreglados")
     except ErrorRadar as e:
         print(f"\n{e}")
         return 1
-    for tabla, cuantos in resumen.items():
-        print(f"{tabla}: {cuantos} textos arreglados")
     return 0
 
 
