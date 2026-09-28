@@ -444,3 +444,26 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
 - **Lo que enseña:** la prueba que lo cazó no la escribió nadie. La escribió el calendario. Por
   eso ahora hay una que fija la hora a mano (22:30 UTC = 00:30 en Madrid) y no depende de cuándo
   se ejecute.
+
+## D44 · Se completa el histórico de 2024 y se vuelve a medir
+- **El hallazgo, del 29-09-2026:** el universo del estudio son los expedientes cuya **primera**
+  publicación cae en el primer semestre de 2025, y el histórico empezaba en 2025-01. Un
+  expediente publicado en octubre de 2024 y actualizado en marzo de 2025 parecía publicado por
+  primera vez en marzo de 2025 y entraba en el universo sin deberlo. El detalle completo está en
+  `docs/HALLAZGO_UNIVERSO.md`.
+- **Lo que se descartó:** deshacer la carga de 2024 y quedarse con las cifras publicadas. Es
+  elegir a sabiendas un dato peor para no tener que tocar nada, y el error seguiría ahí, solo que
+  invisible. También se descartó publicar los dos juegos de cifras: un informe con dos verdades
+  se lee peor y protege al autor más que al lector.
+- **Decisión:** se completa la carga de 2024 y **se vuelve a medir todo lo que dependa del
+  universo**, que es lo que este proyecto hace siempre que cambia algo de lo que salen las
+  cifras. El recálculo no cuesta dinero: los triajes están guardados y solo cambia qué
+  expedientes cuentan.
+- **Lo que esto no es:** un cambio de criterio. La definición del universo no se toca; lo que se
+  arregla es el dato con el que se aplicaba. Por eso los documentos congelados no se reescriben:
+  llevan una entrada en su apartado **Cambios** diciendo que sus cifras se midieron con el
+  histórico incompleto, y la medición nueva va en los informes.
+- **Lo que enseña:** el aviso no salió de ninguna revisión, salió de un candado escrito el mismo
+  día para otra cosa (`radar.diagnostico` compara el universo de ahora con la `n` guardada en
+  `eval_resultados`). Sin él, la carga habría cambiado las cifras en silencio y el informe habría
+  seguido diciendo 120.656. Merece la pena escribir candados aunque parezcan de más.

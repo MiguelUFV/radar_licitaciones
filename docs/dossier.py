@@ -230,6 +230,19 @@ def del_radar() -> dict:
         "requisitos": "SELECT count(*) FROM requisitos",
         "verificados": "SELECT count(*) FROM requisitos WHERE verificada",
         "fichas": "SELECT count(*) FROM fichas",
+        # El universo del estudio y su ritmo diario. Estaban escritos a mano en el texto, y el
+        # 29-09-2026 cambiaron al cargar 2024: los expedientes que ya se habían publicado antes
+        # salieron del periodo. Una cifra escrita a mano en un documento es una cifra que se
+        # queda vieja sin avisar.
+        "universo": (
+            "SELECT count(*) FROM (SELECT entry_id FROM licitaciones GROUP BY entry_id"
+            " HAVING min(entry_updated) >= '2025-01-01' AND min(entry_updated) < '2025-07-01') s"
+        ),
+        "dias_con_publicaciones": (
+            "SELECT count(DISTINCT primera::date) FROM (SELECT min(entry_updated) primera"
+            " FROM licitaciones GROUP BY entry_id) s"
+            " WHERE primera >= '2025-01-01' AND primera < '2025-07-01'"
+        ),
         # La última pasada de verdad, no la de hoy: un dossier generado al día siguiente diría
         # que el radar no ha mirado nada, que es falso. Y solo de clientes, porque en la misma
         # tabla hay triajes de las empresas del estudio, que no reciben correo de nadie.
@@ -317,6 +330,12 @@ def cuantas_pruebas() -> str:
     return str(sum(por_fichero)) if por_fichero else "todas las"
 
 
+def ritmo(hoy: dict) -> str:
+    """Licitaciones publicadas al día en el periodo del estudio."""
+    dias = hoy.get("dias_con_publicaciones") or 0
+    return f"{hoy.get('universo', 0) / dias:.0f}" if dias else "—"
+
+
 def fecha(dia) -> str:
     """La fecha como se escribe en España. Si no hay ninguna pasada todavía, se dice."""
     return f"{dia:%d-%m-%Y}" if dia else "(sin ninguna pasada todavía)"
@@ -389,8 +408,10 @@ def el_problema(hoy: dict) -> list:
         p("1. El problema, con números", "seccion"),
         p(
             "En España se publican cada día cientos de licitaciones públicas. En el semestre que "
-            "usa este estudio se publicaron <b>120.656 expedientes en 181 días con publicaciones, "
-            "666 al día de media</b>. Una empresa pequeña que quiera vender al sector público "
+            f"usa este estudio se publicaron <b>{miles(hoy.get('universo', 0))} expedientes en "
+            f"{hoy.get('dias_con_publicaciones', 0)} días con publicaciones, "
+            f"{ritmo(hoy)} al día de media</b>. Una empresa pequeña que quiera vender al sector "
+            "público "
             "tiene que encontrar entre todo eso las pocas a las que puede presentarse.",
             "primero",
         ),
