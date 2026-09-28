@@ -173,6 +173,43 @@ def comprobar_regla_congelada() -> tuple[bool, str]:
     )
 
 
+def comprobar_universo_del_estudio() -> tuple[bool, str]:
+    """El periodo sobre el que se midió, ¿sigue teniendo los mismos expedientes?
+
+    Las cifras publicadas se calcularon sobre 120.656 expedientes del primer semestre de 2025, y
+    ese número está guardado en `eval_resultados` como la `n` de M2. Cargar más histórico no
+    debería tocarlo —las consultas del estudio filtran por fecha—, pero «no debería» no es una
+    comprobación. Si un día cambia, las cifras publicadas dejan de corresponder a los datos que
+    hay, y eso tiene que saltar solo.
+    """
+    try:
+        from radar.bd import conectar
+        from radar.evaluacion.triaje import DESDE, HASTA, PUBLICADAS
+
+        with conectar() as conexion, conexion.cursor() as cur:
+            cur.execute(f"SELECT count(*) FROM ({PUBLICADAS}) AS s", (DESDE, HASTA))
+            ahora = cur.fetchone()[0]
+            cur.execute(
+                "SELECT DISTINCT ON (variante) n FROM eval_resultados"
+                " WHERE metrica = 'M2' AND variante LIKE 'baseline%' AND n > 1000"
+                " ORDER BY variante, calculada_en DESC"
+            )
+            medidos = {fila[0] for fila in cur.fetchall()}
+    except ErrorRadar as e:
+        return False, e.mensaje
+    if not medidos:
+        return True, "Todavía no hay ninguna medición publicada sobre el universo del estudio"
+    if ahora in medidos:
+        return True, f"El universo del estudio sigue siendo el medido ({ahora:,} expedientes)".replace(
+            ",", "."
+        )
+    return False, (
+        f"El periodo del estudio tiene ahora {ahora} expedientes y las cifras publicadas se "
+        f"midieron sobre {sorted(medidos)[0]}. O se ha cargado algo que cae dentro del periodo, "
+        "o se ha borrado algo: hasta aclararlo, lo publicado no corresponde a lo que hay."
+    )
+
+
 def main() -> int:
     print("Diagnóstico del entorno\n")
     problemas = 0
@@ -198,8 +235,9 @@ def main() -> int:
         problemas += not correcto
 
     # Avisos: cosas que hay que mirar pero que pueden ser correctas.
-    correcto, mensaje = comprobar_regla_congelada()
-    print(f"{OK if correcto else AVISO} {mensaje}")
+    for comprobacion in (comprobar_regla_congelada, comprobar_universo_del_estudio):
+        correcto, mensaje = comprobacion()
+        print(f"{OK if correcto else AVISO} {mensaje}")
 
     print()
     if problemas:

@@ -52,3 +52,31 @@ def test_avisa_si_la_regla_del_sorteo_ha_cambiado(bd, monkeypatch):
     correcto, mensaje = diagnostico.comprobar_regla_congelada()
     assert not correcto
     assert "Cambios" in mensaje and "Traceback" not in mensaje
+
+
+def test_avisa_si_el_universo_del_estudio_ya_no_es_el_medido(bd):
+    # Las cifras publicadas se calcularon sobre un numero concreto de expedientes. Cargar mas
+    # historico lo cambio de verdad el 29-09-2026: expedientes que parecian publicados por
+    # primera vez en 2025 tenian una version en 2024 y salieron del periodo. Una medicion que
+    # ya no corresponde a los datos que hay tiene que saltar sola.
+    from radar import diagnostico
+
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute(
+            "INSERT INTO eval_resultados (metrica, variante, periodo_desde, periodo_hasta,"
+            " valor, n, git_commit, comando) VALUES ('M2', 'baseline_a', '2025-01-01',"
+            " '2025-07-01', 49.9, 120656, 'x', 'cmd')"
+        )
+        conexion.commit()
+
+    correcto, mensaje = diagnostico.comprobar_universo_del_estudio()
+    assert not correcto, "la base de pruebas no tiene 120.656 expedientes: tiene que avisar"
+    assert "120656" in mensaje and "Traceback" not in mensaje
+    assert "no corresponde" in mensaje
+
+
+def test_sin_mediciones_publicadas_no_hay_nada_que_comparar(bd):
+    from radar import diagnostico
+
+    correcto, mensaje = diagnostico.comprobar_universo_del_estudio()
+    assert correcto and "Todavía no" in mensaje
