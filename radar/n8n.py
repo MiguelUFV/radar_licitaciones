@@ -54,12 +54,23 @@ def correo_de(variable: str, por_defecto: str = "") -> str:
     return os.getenv(variable, por_defecto)
 
 
-def nodo_correo(nombre: str, identificador: str, posicion: list[int], asunto: str, cuerpo: str) -> dict:
-    """Un nodo de envío. El asunto y el cuerpo son expresiones de n8n, no texto fijo."""
+def nodo_correo(
+    nombre: str,
+    identificador: str,
+    posicion: list[int],
+    asunto: str,
+    cuerpo: str,
+    destino: str | None = None,
+) -> dict:
+    """Un nodo de envío. El asunto, el cuerpo y el destinatario son expresiones, no texto fijo.
+
+    `destino` se deja pasar porque desde que hay más de un cliente la dirección no puede estar
+    en el `.env`: la trae el propio correo que compone el agente, que sabe de quién es.
+    """
     return {
         "parameters": {
             "fromEmail": correo_de("CORREO_REMITENTE"),
-            "toEmail": correo_de("CORREO_DESTINO"),
+            "toEmail": destino or correo_de("CORREO_DESTINO"),
             "subject": asunto,
             "emailFormat": "both",
             "html": cuerpo,
@@ -186,7 +197,12 @@ def workflow_errores(credencial: dict) -> dict:
 
 
 def workflow_diario(errores_id: str | None = None) -> dict:
-    """07:00 de lunes a viernes: ingesta del feed, descarga de pliegos y registro."""
+    """07:00 de lunes a viernes: feed, pliegos y, para cada cliente, su trabajo y su correo.
+
+    La lista de empresas no está escrita en el workflow: se le pregunta al agente. Dar de alta
+    una empresa nueva no puede obligar a tocar n8n, porque entonces el formulario de alta no
+    daría de alta a nadie.
+    """
     ajustes = {"executionOrder": "v1", "timezone": "Europe/Madrid"}
     if errores_id:
         ajustes["errorWorkflow"] = errores_id
@@ -252,11 +268,47 @@ def workflow_diario(errores_id: str | None = None) -> dict:
                 "position": [660, 0],
             },
             {
+                "parameters": {"url": f"{URL_AGENTE}/clientes", "options": {"timeout": 30000}},
+                "id": "clientes",
+                "name": "Preguntar que empresas hay",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [880, 0],
+            },
+            {
+                "parameters": {"fieldToSplitOut": "empresas", "options": {}},
+                "id": "una_a_una",
+                "name": "Una empresa por vez",
+                "type": "n8n-nodes-base.splitOut",
+                "typeVersion": 1,
+                "position": [1100, 0],
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": f"{URL_AGENTE}/diario",
+                    "sendBody": True,
+                    "specifyBody": "json",
+                    "jsonBody": ("={{ JSON.stringify({ empresa: $json.alias, gastar: true }) }}"),
+                    "options": {"timeout": 1800000},
+                },
+                "id": "trabajo",
+                "name": "Triar y leer para esa empresa",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [1320, 0],
+            },
+            {
                 "parameters": {
                     "url": f"{URL_AGENTE}/correo/hoy",
                     "sendQuery": True,
                     "queryParameters": {
-                        "parameters": [{"name": "empresa", "value": correo_de("CORREO_EMPRESA", "Empresa A")}]
+                        "parameters": [
+                            {
+                                "name": "empresa",
+                                "value": "={{ $('Una empresa por vez').item.json.alias }}",
+                            }
+                        ]
                     },
                     "options": {"timeout": 60000},
                 },
@@ -264,14 +316,15 @@ def workflow_diario(errores_id: str | None = None) -> dict:
                 "name": "Pedir el correo del dia",
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
-                "position": [880, 0],
+                "position": [1540, 0],
             },
             nodo_correo(
                 "Enviar el correo del dia",
                 "enviar",
-                [1100, 0],
+                [1760, 0],
                 "={{ $json.asunto }}",
                 "={{ $json.html }}",
+                destino="={{ $json.destinatario }}",
             ),
         ],
         "connections": {
@@ -285,6 +338,15 @@ def workflow_diario(errores_id: str | None = None) -> dict:
                 "main": [[{"node": "Bajar los pliegos pendientes", "type": "main", "index": 0}]]
             },
             "Bajar los pliegos pendientes": {
+                "main": [[{"node": "Preguntar que empresas hay", "type": "main", "index": 0}]]
+            },
+            "Preguntar que empresas hay": {
+                "main": [[{"node": "Una empresa por vez", "type": "main", "index": 0}]]
+            },
+            "Una empresa por vez": {
+                "main": [[{"node": "Triar y leer para esa empresa", "type": "main", "index": 0}]]
+            },
+            "Triar y leer para esa empresa": {
                 "main": [[{"node": "Pedir el correo del dia", "type": "main", "index": 0}]]
             },
             "Pedir el correo del dia": {

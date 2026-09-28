@@ -2,8 +2,7 @@
   "name": "radar_diario",
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Europe/Madrid",
-    "errorWorkflow": "sxeZDaAu4WlGZqoq"
+    "timezone": "Europe/Madrid"
   },
   "nodes": [
     {
@@ -84,13 +83,63 @@
     },
     {
       "parameters": {
+        "url": "http://agente:8000/clientes",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "clientes",
+      "name": "Preguntar que empresas hay",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "empresas",
+        "options": {}
+      },
+      "id": "una_a_una",
+      "name": "Una empresa por vez",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://agente:8000/diario",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ empresa: $json.alias, gastar: true }) }}",
+        "options": {
+          "timeout": 1800000
+        }
+      },
+      "id": "trabajo",
+      "name": "Triar y leer para esa empresa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "url": "http://agente:8000/correo/hoy",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
             {
               "name": "empresa",
-              "value": "Empresa A"
+              "value": "={{ $('Una empresa por vez').item.json.alias }}"
             }
           ]
         },
@@ -103,14 +152,14 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        880,
+        1540,
         0
       ]
     },
     {
       "parameters": {
         "fromEmail": "miguelmartincaro@gmail.com",
-        "toEmail": "miguelmartincaro@gmail.com",
+        "toEmail": "={{ $json.destinatario }}",
         "subject": "={{ $json.asunto }}",
         "emailFormat": "both",
         "html": "={{ $json.html }}",
@@ -122,7 +171,7 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        1100,
+        1760,
         0
       ],
       "credentials": {
@@ -168,6 +217,39 @@
       ]
     },
     "Bajar los pliegos pendientes": {
+      "main": [
+        [
+          {
+            "node": "Preguntar que empresas hay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preguntar que empresas hay": {
+      "main": [
+        [
+          {
+            "node": "Una empresa por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Una empresa por vez": {
+      "main": [
+        [
+          {
+            "node": "Triar y leer para esa empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Triar y leer para esa empresa": {
       "main": [
         [
           {

@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from radar import clientes, formulario, ingesta, pliegos
+from radar import clientes, diario, empresas, formulario, ingesta, pliegos
 from radar.bd import conectar
 from radar.errores import ErrorRadar
 
@@ -104,6 +104,31 @@ def correo_hoy(empresa: str, fecha: str = "") -> dict:
 
     # La fecha puede llegar vacía desde n8n cuando el webhook no la trae: eso es "hoy".
     return correo.del_correo(empresa, date.fromisoformat(fecha) if fecha else None)
+
+
+@app.get("/clientes")
+def clientes_activos() -> dict:
+    """Las empresas que hoy esperan un correo. n8n recorre esta lista.
+
+    Sale el alias y la dirección, nada más: lo que n8n necesita para mandar y para pedir el
+    correo de cada una. Ni el nombre fiscal, ni la cifra de negocio, ni el texto del perfil.
+    """
+    with conectar() as conexion:
+        activas = empresas.activas(conexion)
+    return {"empresas": [{"alias": e["alias"], "correo": e["correo"]} for e in activas]}
+
+
+class PeticionDiario(BaseModel):
+    empresa: str | None = Field(default=None, description="solo esta; si falta, todas las activas")
+    # Sin esto no se llama al modelo: se dice qué habría que hacer y qué costaría. El valor por
+    # defecto es el que no gasta, a propósito.
+    gastar: bool = False
+
+
+@app.post("/diario")
+def trabajo_diario(peticion: PeticionDiario) -> dict:
+    """Tría lo nuevo y lee pliegos para cada cliente, hasta su tope diario."""
+    return diario.del_dia(peticion.empresa, gastar=peticion.gastar)
 
 
 @app.get("/alta", response_class=HTMLResponse)

@@ -377,3 +377,48 @@ def test_sin_ninguna_empresa_de_alta_se_dice_con_palabras(bd):
         diario.del_dia()
     assert "/alta" in str(fallo.value)
     assert "Traceback" not in str(fallo.value)
+
+
+# --- La frontera con n8n --------------------------------------------------------------
+
+
+def test_la_lista_de_empresas_no_ensena_nada_de_mas(bd):
+    # n8n solo necesita a quién escribir. El texto del perfil, la cifra de negocio y el nombre
+    # fiscal son de la empresa y no tienen por qué salir de la base.
+    from fastapi.testclient import TestClient
+
+    from radar import api
+
+    clientes.dar_de_alta(CLIENTE)
+    respuesta = TestClient(api.app, raise_server_exceptions=False).get("/clientes")
+    assert respuesta.status_code == 200
+    empresas = respuesta.json()["empresas"]
+    assert empresas == [{"alias": "Empresa del Norte", "correo": "contratacion@ejemplo.es"}]
+    entero = respuesta.text
+    assert "Soluciones del Norte" not in entero and "850000" not in entero
+
+
+def test_el_trabajo_diario_no_gasta_si_no_se_le_dice(bd):
+    from fastapi.testclient import TestClient
+
+    from radar import api
+
+    clientes.dar_de_alta(CLIENTE)
+    respuesta = TestClient(api.app, raise_server_exceptions=False).post("/diario", json={})
+    assert respuesta.status_code == 200
+    empresa = respuesta.json()["empresas"][0]
+    assert "por_triar" in empresa and "triadas" not in empresa
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT count(*) FROM llm_llamadas")
+        assert cur.fetchone()[0] == 0
+
+
+def test_el_workflow_diario_recorre_las_empresas_y_manda_a_cada_una_la_suya():
+    from radar import n8n
+
+    trabajo = n8n.workflow_diario()
+    nombres = [nodo["name"] for nodo in trabajo["nodes"]]
+    assert "Preguntar que empresas hay" in nombres, "la lista no puede estar escrita en n8n"
+    assert nombres.index("Triar y leer para esa empresa") < nombres.index("Pedir el correo del dia")
+    envio = trabajo["nodes"][-1]["parameters"]
+    assert envio["toEmail"] == "={{ $json.destinatario }}", "cada empresa recibe en su direccion"
