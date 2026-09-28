@@ -98,7 +98,9 @@ los datos en Postgres, está en el **5679**. Se pueden usar a la vez.
    una cuenta en la nube y no tiene nada que ver con la que ya tienes.
 2. **Settings → n8n API → Create API key.** Cópiala en `.env` como `N8N_API_KEY`.
 3. **Credenciales de correo (SMTP):**
-   - Recomendado: una cuenta de Gmail nueva, solo para el radar (no la personal ni la de la universidad).
+   - **Se usa la cuenta personal de Gmail** con una contraseña de aplicación (decisión D37). Lo
+     recomendable sería una cuenta nueva dedicada, pero el 28-09-2026 Google no dejó crearla y no
+     merece la pena bloquear el proyecto por eso.
    - Activa la verificación en dos pasos en esa cuenta y crea una contraseña de aplicación en
      [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
      **Una contraseña de aplicación son 16 letras minúsculas en cuatro grupos** (`abcd efgh ijkl

@@ -320,3 +320,22 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
   2. Si la fila completa no entra, se apunta una fila con lo imprescindible (nodo, modelo, tokens,
      coste, cambio) y se avisa con un error legible. La cuenta no se pierde nunca; el fallo se ve.
 - **Cómo se demuestra:** dos tests en `tests/test_llm.py`, los dos en rojo antes del arreglo.
+
+## D37 · El correo sale de la cuenta personal, con contraseña de aplicación
+- **Lo que decía ENTORNO §6:** una cuenta de Gmail nueva y dedicada al radar, para que un descuido
+  con esa contraseña no tocara la cuenta personal.
+- **Lo que pasó el 28-09-2026:** Google no dejó crear la cuenta. Puede ser el teléfono ya usado en
+  otras altas, el CAPTCHA o la detección de automatización; el motivo exacto no se sabe.
+- **Decisión:** se usa la cuenta personal con una **contraseña de aplicación**, que no es la
+  contraseña de la cuenta y se revoca por separado desde `myaccount.google.com/apppasswords`.
+- **Por qué es aceptable:** la contraseña vive cifrada dentro de n8n, en el ordenador de casa, con la
+  API de n8n apagada (D32); es revocable en un clic sin cambiar la contraseña de la cuenta; y los
+  correos van a esa misma dirección de todas formas.
+- **El riesgo que queda, escrito:** una contraseña de aplicación da acceso al buzón por IMAP y SMTP,
+  no solo a enviar. Si se filtrara, hay que revocarla **y** revisar la actividad de la cuenta. Con
+  una cuenta dedicada el daño se habría quedado en un buzón vacío.
+- **Alternativas descartadas:** otra cuenta de Google (es lo que acaba de fallar); un servicio de
+  envío como Brevo o Resend (otro registro y otra dependencia para una prueba de cinco días); el
+  correo de la universidad (SMTP cerrado en la mayoría de las instalaciones institucionales).
+- **Cómo se deshace:** si algún día hay cuenta dedicada, se cambia la credencial en n8n y las dos
+  direcciones de `.env`. No hay que tocar código.
