@@ -30,6 +30,7 @@ y el orden de los commits es la prueba de que no se cambió:
 | `docs/baselines/empresa_*.md` | El filtro CPV de cada empresa |
 | `docs/EXPERIMENTO_TRIAJE.md` | Variantes, muestra y regla de decisión de D06. Anterior a la primera llamada de triaje |
 | `docs/PLAN_MEDICION.md` | Muestra, métricas y criterio de la Fase 5. Anterior a mirar un contrato de las empresas de test |
+| `docs/METRICA_EFICIENCIA.md` | Definición y regla de decisión de M9 y M10. **Posterior a M1**, y lo dice en su primera línea; anterior a calcularlas |
 
 Si de verdad hay que cambiar uno: se añade una entrada al apartado **Cambios** del propio documento,
 con fecha y motivo, y **se vuelve a medir** lo que dependa de él. Nunca se edita el texto original.
