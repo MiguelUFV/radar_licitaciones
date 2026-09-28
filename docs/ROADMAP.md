@@ -205,12 +205,16 @@ El formulario es el arreglo que señalaba esa medición.
 
 ### Lo que falta para que el radar sirva a varias empresas
 
-1. **El trabajo diario, por cliente.** Hoy `radar_diario` ingiere y baja pliegos para todos, pero el
-   correo sale de una sola empresa (`CORREO_EMPRESA` en `.env`). Hay que recorrer los clientes
-   activos, triar con el perfil de cada uno y mandar a cada uno su correo.
-2. **Leer los pliegos en el trabajo diario.** Ahora no se leen: el grafo se lanza a mano. Cada
-   cliente ya trae su `tope_diario_eur`, así que el paso existe, solo hay que llamarlo y cortar por
-   ese tope.
+1. ~~**El trabajo diario, por cliente.**~~ Hecho el 28-09-2026. `radar/diario.py` hace la mañana de
+   cada cliente activo y el workflow le pregunta al agente qué empresas hay (`GET /clientes`) en
+   lugar de llevar la lista escrita: si la llevara, dar de alta una empresa obligaría a tocar n8n.
+   Cada una recibe en su dirección, y el pie del correo cuenta **su** gasto y no el de todos, que
+   era lo que contaba antes.
+2. ~~**Leer los pliegos en el trabajo diario.**~~ Hecho el 28-09-2026, cortando por el
+   `tope_diario_eur` de cada cliente (D41). Antes de abrir un pliego se comprueba que lo que queda
+   del tope cubre la reserva, que sale del percentil 90 de lo que han costado los ya leídos.
+   **Sigue sin ejecutarse una pasada de pago:** está probado con la API del modelo falseada, y la
+   primera mañana de verdad todavía no se ha lanzado.
 3. **Que el formulario lo rellene la empresa, no Miguel.** Eso ya no es este proyecto: necesita
    alojamiento, autenticación y una política de datos. Hoy escucha solo en el ordenador, como todo
    lo demás (SPEC §9).

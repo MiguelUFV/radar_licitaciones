@@ -178,6 +178,17 @@ flowchart TD
   PRESTO; Empresa C dice integrar equipos de televisión y ganó contratos de CDN, DRM y analítica de
   redes sociales. El triaje razonó bien sobre una descripción demasiado estrecha. El techo del radar
   es el perfil, no el modelo (`docs/informes/fase5_diagnostico.md`).
+- **El tope diario de un cliente se puede pasar por el precio de un pliego.** Antes de abrir uno
+  se comprueba que lo que queda del tope cubre la reserva (el percentil 90 de lo que han costado
+  los pliegos ya leídos), pero el coste real no se sabe hasta haberlo leído: un pliego más caro
+  que la reserva se pasa del tope por esa diferencia. No se corta a mitad de un pliego a
+  propósito: dejar una lectura pagada a medias sería peor que pasarse unos céntimos.
+- **El trabajo diario mira 400 licitaciones por pasada como mucho** (`radar/diario.py`). No es un
+  límite de dinero —triar 400 cuesta céntimos— sino de tiempo: una mañana no puede quedarse
+  colgada porque el histórico traiga miles. Lo que no entre sigue pendiente al día siguiente.
+- **Una licitación se tría una sola vez por empresa.** Si un expediente cambia de versión después
+  del triaje, no se vuelve a triar: se trabaja siempre con la versión vigente al leer el pliego,
+  pero la decisión del filtro barato es la de la primera vez que se vio.
 - **Los perfiles los escribió el modelo, no una persona** (cambio del 27-09-2026 en
   `docs/REGLA_SELECCION.md`). Salen solo de fuentes públicas sobre cada empresa y sin consultar ni un
   contrato, pero quedan más ordenados que el perfil que escribiría un cliente real, y eso **favorece

@@ -368,3 +368,41 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
 - **Queda por comprobar:** que esto de verdad sube el recall. No se puede medir con las empresas
   del estudio, porque sus perfiles están congelados y volver a escribirlos invalidaría la Fase 5.
   Haría falta un segundo estudio con empresas nuevas de las 12 que cumplen la regla y no se usaron.
+
+## D40 · El alias deja de ser una clave foránea a `perfiles`, y pasa a un disparador
+- **El fallo, del 28-09-2026:** `triajes.alias`, `lecturas.alias` y `fichas.alias` apuntaban con
+  una clave foránea a `perfiles`, la tabla del estudio. Una empresa dada de alta por el formulario
+  nunca está ahí (D38), así que la base rechazaba su primera fila: *«Key (alias)=(Empresa del
+  Norte) is not present in table "perfiles"»*. El formulario le prometía que entraba en el aviso
+  diario y era mentira: el radar no podía ni triarla.
+- **Lo que se descartó:** meter a los clientes en `perfiles`. Es lo que menos código cambia y lo
+  peor que se podía hacer: una fila de cliente parecería un sujeto del estudio, y el estudio
+  dejaría de demostrar nada.
+- **Decisión:** las tres claves foráneas se sustituyen por un disparador que exige que el alias
+  sea de alguien —de un cliente o del estudio—. PostgreSQL no permite una clave foránea a la unión
+  de dos tablas, pero la comprobación sigue **en la base** y no solo en el código, por lo mismo
+  que la de datos personales (007): el día que alguien inserte por otro camino, la base lo para.
+- **Y un segundo disparador** impide que un cliente se llame como una empresa del estudio. Si
+  coincidieran, el cliente leería en su correo decisiones que no son suyas, y las cifras
+  publicadas se mezclarían con el trabajo diario de un cliente.
+- **Dónde vive ahora la pregunta «de quién es este alias»:** en `radar/empresas.py`, un solo
+  sitio. El candado de la huella está dentro, y es el mismo para los dos: en el estudio porque
+  cambiar el texto obliga a volver a medir, en un cliente porque una decisión tiene que poder
+  explicarse con el texto exacto que la produjo. Lo que solo consulta —componer el correo de la
+  mañana— no lo exige: las decisiones ya están tomadas, y un perfil sin congelar no puede dejar a
+  un cliente sin su aviso.
+
+## D41 · El tope diario es de cada cliente, y se gasta triando antes que leyendo
+- **El problema:** leer un pliego cuesta dinero de verdad (0,083 € el percentil 90 de lo medido).
+  Con varias empresas, alguien tiene que decidir cuántos pliegos se abren al día y con qué
+  criterio, y no puede ser una constante escrita en el código.
+- **Decisión:** cada empresa pone su tope en el formulario de alta y el trabajo diario se corta
+  por ahí, empresa a empresa. Por encima sigue el tope global del `.env`, que protege al radar
+  entero (`radar/llm.py`).
+- **El orden del gasto:** primero triar todo lo nuevo, después leer pliegos. Si el tope se agota,
+  se agota leyendo: quedarse sin triar es no haber mirado una licitación que quizá era la buena,
+  mientras que quedarse sin leer solo deja un pliego para mañana. Es el mismo criterio que
+  `docs/PLAN_MEDICION.md` §4 usó para ordenar el gasto de la medición.
+- **La reserva antes de abrir un pliego sale de lo medido**, no de una cifra inventada: el
+  percentil 90 del coste de los pliegos ya leídos, y el percentil y no la media porque tiene que
+  cubrir uno caro. Mientras no haya ninguno leído se usa el 0,070 €/pliego de la Fase 4.
