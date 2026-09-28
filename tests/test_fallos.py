@@ -112,6 +112,20 @@ def error_del_sdk(clase: str, **kw):
     if clase == "RateLimitError":
         respuesta = httpx.Response(429, request=peticion, json={"error": {"message": "slow down"}})
         return anthropic.RateLimitError("429", response=respuesta, body=None)
+    if clase == "SinSaldo":
+        # Tal y como llega de verdad: un 400 corriente con el motivo dentro del mensaje.
+        cuerpo = {
+            "type": "error",
+            "error": {
+                "type": "invalid_request_error",
+                "message": (
+                    "Your credit balance is too low to access the Anthropic API. Please go to "
+                    "Plans & Billing to upgrade or purchase credits."
+                ),
+            },
+        }
+        respuesta = httpx.Response(400, request=peticion, json=cuerpo)
+        return anthropic.BadRequestError("Error code: 400 - " + str(cuerpo), response=respuesta, body=cuerpo)
     return anthropic.APIConnectionError(request=peticion)
 
 
@@ -222,6 +236,23 @@ def test_una_clave_rechazada_por_el_modelo_lo_dice_sin_traza(bd, modelo):
         llm.llamar("prueba", [{"role": "user", "content": "hola"}], api=api)
     es_legible(str(fallo.value))
     assert "clave" in str(fallo.value) and "saldo" in str(fallo.value)
+
+
+def test_sin_saldo_en_la_cuenta_se_dice_que_falta_saldo_y_donde(bd, modelo):
+    # Llega como un 400 corriente, y el mensaje de un 400 —«algo de lo que se le manda no le
+    # encaja, es un fallo del programa»— manda a buscar un fallo que no existe. Pasó de verdad
+    # el 28-09-2026: la primera mañana trió las 400 licitaciones y se quedó sin saldo antes de
+    # abrir un solo pliego, y lo único que se veía era «el modelo ha rechazado la petición».
+    api = ApiFalsa(error=error_del_sdk("SinSaldo"))
+    with pytest.raises(llm.ModeloNoResponde) as fallo:
+        llm.llamar("extraccion", [{"role": "user", "content": "hola"}], api=api)
+    mensaje = str(fallo.value)
+    es_legible(mensaje)
+    assert "saldo" in mensaje and "Plans & Billing" in mensaje
+    assert "fallo del programa" not in mensaje
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute("SELECT count(*) FROM llm_llamadas")
+        assert cur.fetchone()[0] == 0, "sin saldo no hay llamada, y sin llamada no hay cobro"
 
 
 # --- 6. Límite de uso o saturación ----------------------------------------------------

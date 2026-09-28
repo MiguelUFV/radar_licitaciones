@@ -113,16 +113,32 @@ FALLOS_DEL_SDK = (
 )
 
 
+# Lo que contesta la API cuando la cuenta se queda a cero. Va aparte de la lista de arriba
+# porque llega como un 400 corriente, y el mensaje de un 400 —«algo de lo que se le manda no le
+# encaja, es un fallo del programa»— manda a buscar un fallo que no existe. Pasó el 28-09-2026:
+# la primera mañana de verdad trió las 400 licitaciones y se quedó sin saldo antes de abrir un
+# solo pliego, y lo único que se veía era «el modelo ha rechazado la petición».
+SIN_SALDO = "credit balance is too low"
+FALTA_SALDO = (
+    "La cuenta de Anthropic se ha quedado sin saldo, así que el modelo no atiende ninguna "
+    "petición. No se ha gastado nada en esta llamada. Se arregla añadiendo saldo desde el panel "
+    "de la cuenta, en el apartado Plans & Billing; después, el mismo comando continúa donde iba."
+)
+
+
 def traducir_fallo(error: BaseException, nodo: str) -> ModeloNoResponde:
     """Convierte un fallo del SDK en un mensaje para una persona, y manda la traza al log."""
     from radar import incidencias
 
     nombres = {clase.__name__ for clase in type(error).__mro__}
-    mensaje = next(
-        (texto for nombre, texto in FALLOS_DEL_SDK if nombre in nombres),
-        "El modelo no ha podido atender la petición. No se ha gastado nada en esta llamada. "
-        "Vuelve a lanzar el mismo comando: continúa donde iba.",
-    )
+    if SIN_SALDO in str(error):
+        mensaje = FALTA_SALDO
+    else:
+        mensaje = next(
+            (texto for nombre, texto in FALLOS_DEL_SDK if nombre in nombres),
+            "El modelo no ha podido atender la petición. No se ha gastado nada en esta llamada. "
+            "Vuelve a lanzar el mismo comando: continúa donde iba.",
+        )
     incidencias.apuntar("llm.llamar", f"Fallo de la API del modelo en el nodo {nodo}", error)
     return ModeloNoResponde(mensaje, detalle=f"{type(error).__name__}: {error}")
 
