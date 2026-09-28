@@ -317,6 +317,10 @@ def main() -> int:
         print(f"\n{e}")
         return 1
     print(f"\nFicha: {fichero.as_posix()}")
+    # La carpeta del proyecto tiene espacios y el navegador parte la ruta por el primero: se
+    # queda intentando resolver «code» como si fuera una web (DNS_PROBE_FINISHED_NXDOMAIN).
+    # Con la ruta escapada se abre bien, y ya la damos escapada.
+    print(f"Para verla:  {fichero.resolve().as_uri()}")
     return 0
 
 
