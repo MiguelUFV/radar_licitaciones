@@ -92,7 +92,7 @@ def resumen_hoy() -> dict:
 
 
 @app.get("/correo/hoy")
-def correo_hoy(empresa: str, fecha: str | None = None) -> dict:
+def correo_hoy(empresa: str, fecha: str = "") -> dict:
     """El correo del día ya compuesto: asunto, HTML y texto.
 
     El agente escribe el correo y n8n lo envía (D25). Aquí no hay credenciales de ningún tipo:
@@ -102,4 +102,5 @@ def correo_hoy(empresa: str, fecha: str | None = None) -> dict:
 
     from radar import correo
 
+    # La fecha puede llegar vacía desde n8n cuando el webhook no la trae: eso es "hoy".
     return correo.del_correo(empresa, date.fromisoformat(fecha) if fecha else None)

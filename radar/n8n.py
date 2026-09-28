@@ -323,7 +323,13 @@ def workflow_prueba_correo() -> dict:
                     "url": f"{URL_AGENTE}/correo/hoy",
                     "sendQuery": True,
                     "queryParameters": {
-                        "parameters": [{"name": "empresa", "value": correo_de("CORREO_EMPRESA", "Empresa A")}]
+                        "parameters": [
+                            {"name": "empresa", "value": correo_de("CORREO_EMPRESA", "Empresa A")},
+                            # Con una fecha en el cuerpo del webhook se manda el correo de ese
+                            # día; sin ella, el de hoy. Sirve para enseñar un día con contenido
+                            # sin tener que esperar a que lo haya.
+                            {"name": "fecha", "value": "={{ $json.body?.fecha || '' }}"},
+                        ]
                     },
                     "options": {"timeout": 60000},
                 },

@@ -29,6 +29,10 @@
             {
               "name": "empresa",
               "value": "Empresa A"
+            },
+            {
+              "name": "fecha",
+              "value": "={{ $json.body?.fecha || '' }}"
             }
           ]
         },
