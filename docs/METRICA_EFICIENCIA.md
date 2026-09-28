@@ -97,4 +97,15 @@ encontrado o no— es un dato, no una estimación.
 
 ## Cambios
 
-_Ninguno. Si algún día hay uno, va aquí con su fecha y su motivo, y se vuelve a calcular._
+_Si algún día hay uno, va aquí con su fecha y su motivo, y se vuelve a calcular._
+
+**29-09-2026 · De qué filas de `eval_resultados` sale M2.** El apartado 3 decía «donde ya están
+M1 y M2 por empresa y por variante», y al ir a calcular apareció que hay **dos conjuntos de M2
+que no son comparables**: las filas sueltas de `baseline_a` y `baseline_b` se calcularon en la
+Fase 3 sobre el universo entero (n = 120.656), y el `detalle` de la fila del agente trae las tres
+variantes calculadas sobre la misma base (666,61 licitaciones publicadas al día). Dividir un
+recall por un volumen medido con otro denominador no mide nada.
+
+Se usa **el conjunto del `detalle` del agente**, que es también el que publica la tabla M2 del
+informe de la Fase 5. No cambia la fórmula ni la regla de decisión; precisa de dónde sale uno de
+los dos números. Anotado antes de calcular.
