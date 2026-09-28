@@ -1,0 +1,16 @@
+# Los binarios no se tocan. Sin esto, git trata el PDF como texto porque en Windows
+# `core.autocrlf` está activo, le cambia los finales de línea al clonar y el fichero llega
+# roto: se ve al hacer `git add` («LF will be replaced by CRLF»). Un PDF con un byte cambiado
+# no abre.
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.zip   binary
+
+# El código y la documentación, en LF en el repositorio, pase lo que pase en cada máquina.
+*.py    text eol=lf
+*.md    text eol=lf
+*.sql   text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+*.toml  text eol=lf
