@@ -1,0 +1,563 @@
+<title>Dentro del pliego</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --papel: #fcfbf8;
+    --hoja: #ffffff;
+    --tinta: #1c1e22;
+    --apunte: #5a6270;
+    --regla: #d5d0c4;
+    --sello: #1f3a6e;
+    --sello-suave: #e8eef8;
+    --oxido: #8c2f1f;
+    --oxido-suave: #f7e9e5;
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --medida: 34rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --papel: #16181c;
+      --hoja: #1e2126;
+      --tinta: #e8e6e0;
+      --apunte: #9aa1ad;
+      --regla: #33373f;
+      --sello: #8fb0e8;
+      --sello-suave: #1c2739;
+      --oxido: #e0937f;
+      --oxido-suave: #33211d;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --papel: #16181c;
+    --hoja: #1e2126;
+    --tinta: #e8e6e0;
+    --apunte: #9aa1ad;
+    --regla: #33373f;
+    --sello: #8fb0e8;
+    --sello-suave: #1c2739;
+    --oxido: #e0937f;
+    --oxido-suave: #33211d;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 46rem; margin: 0 auto; padding-block: 3rem 5rem; padding-left: 16px; padding-right: 16px; }
+
+  h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(2rem, 1.3rem + 3vw, 3rem);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    margin: 0 0 1rem;
+    text-wrap: balance;
+  }
+  h2 {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 1.25rem;
+    line-height: 1.3;
+    margin: 0 0 .5rem;
+    text-wrap: balance;
+  }
+  h3 { font-family: var(--sans); font-weight: 600; font-size: 1rem; margin: 0 0 .4rem; }
+  p { margin: 0 0 1rem; max-width: var(--medida); }
+  .entrada { font-size: 1.125rem; color: var(--apunte); max-width: var(--medida); }
+
+  .paso { border-top: 1px solid var(--regla); padding-block: 2.5rem 0; margin-top: 2.5rem; }
+  .numero {
+    font-family: var(--mono);
+    font-size: .8125rem;
+    color: var(--sello);
+    letter-spacing: .08em;
+    display: block;
+    margin-bottom: .5rem;
+  }
+  .apunte { color: var(--apunte); font-size: .9375rem; max-width: var(--medida); }
+
+  /* El expediente que se sigue por toda la página */
+  .expediente {
+    background: var(--hoja);
+    border: 1px solid var(--regla);
+    border-radius: 3px;
+    padding: 1.25rem;
+    margin: 1.5rem 0;
+  }
+  .expediente .objeto { font-family: var(--serif); font-size: 1.125rem; margin: 0 0 .5rem; }
+  .expediente dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: .75rem 1.5rem;
+    margin: 0;
+    font-size: .875rem;
+  }
+  .expediente dt { color: var(--apunte); font-size: .8125rem; }
+  .expediente dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+  /* Las 77 páginas */
+  .paginas {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(1.15rem, 1fr));
+    gap: 3px;
+    margin: 1.25rem 0 .75rem;
+    max-width: var(--medida);
+  }
+  .pag {
+    aspect-ratio: 3 / 4;
+    background: var(--hoja);
+    border: 1px solid var(--regla);
+    border-radius: 1px;
+    padding: 0;
+    font: 400 9px/1 var(--mono);
+    color: var(--apunte);
+    cursor: default;
+  }
+  .pag.leida { background: var(--sello); border-color: var(--sello); color: var(--papel); font-weight: 600; }
+  .pag.ancla { outline: 2px solid var(--sello); outline-offset: 2px; }
+  .leyenda { display: flex; gap: 1.25rem; flex-wrap: wrap; font-size: .8125rem; color: var(--apunte); }
+  .leyenda span { display: inline-flex; align-items: center; gap: .4rem; }
+  .muestra { width: .85rem; height: 1.1rem; border: 1px solid var(--regla); border-radius: 1px; background: var(--hoja); }
+  .muestra.leida { background: var(--sello); border-color: var(--sello); }
+
+  /* El laboratorio de la cita */
+  .laboratorio { background: var(--hoja); border: 1px solid var(--regla); border-radius: 3px; overflow: hidden; margin: 1.5rem 0; }
+  .lab-cabecera {
+    padding: .75rem 1.25rem;
+    border-bottom: 1px solid var(--regla);
+    font-size: .8125rem;
+    color: var(--apunte);
+    font-family: var(--mono);
+  }
+  .lab-cuerpo { padding: 1.25rem; }
+  .pagina-pdf {
+    font-family: var(--serif);
+    font-size: .9375rem;
+    line-height: 1.7;
+    background: var(--papel);
+    border: 1px solid var(--regla);
+    border-radius: 2px;
+    padding: 1rem;
+    max-height: 13rem;
+    overflow-y: auto;
+  }
+  .pagina-pdf mark { background: var(--sello-suave); color: inherit; padding: 0 2px; border-radius: 2px; }
+  label { display: block; font-size: .875rem; font-weight: 600; margin: 1.25rem 0 .35rem; }
+  textarea {
+    width: 100%;
+    font-family: var(--serif);
+    font-size: .9375rem;
+    line-height: 1.6;
+    padding: .7rem .85rem;
+    border: 1px solid var(--regla);
+    border-radius: 2px;
+    background: var(--papel);
+    color: var(--tinta);
+    resize: vertical;
+    min-height: 5.5rem;
+  }
+  textarea:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--sello);
+    outline-offset: 2px;
+  }
+  .botones { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .85rem; }
+  button {
+    font: 600 .875rem var(--sans);
+    padding: .55rem 1rem;
+    border-radius: 2px;
+    border: 1px solid var(--tinta);
+    background: var(--tinta);
+    color: var(--papel);
+    cursor: pointer;
+  }
+  button.secundario { background: transparent; color: var(--tinta); border-color: var(--regla); }
+  .veredicto {
+    margin-top: 1rem;
+    padding: .85rem 1rem;
+    border-radius: 2px;
+    font-size: .9375rem;
+    border-left: 3px solid var(--regla);
+    background: var(--papel);
+  }
+  .veredicto.bien { border-left-color: var(--sello); background: var(--sello-suave); }
+  .veredicto.mal { border-left-color: var(--oxido); background: var(--oxido-suave); }
+  .veredicto strong { display: block; margin-bottom: .2rem; }
+
+  /* La decisión */
+  .mando { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin: 1rem 0; }
+  input[type="number"] {
+    font: 400 1rem var(--mono);
+    padding: .5rem .65rem;
+    width: 9rem;
+    border: 1px solid var(--regla);
+    border-radius: 2px;
+    background: var(--papel);
+    color: var(--tinta);
+  }
+  .requisitos { display: grid; gap: .6rem; margin: 1.25rem 0; }
+  .req {
+    border: 1px solid var(--regla);
+    border-left-width: 3px;
+    border-radius: 2px;
+    padding: .8rem 1rem;
+    background: var(--hoja);
+  }
+  .req.cumple { border-left-color: var(--sello); }
+  .req.no_cumple { border-left-color: var(--oxido); }
+  .req.duda { border-left-color: var(--regla); }
+  .req .etiqueta { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--apunte); }
+  .req .texto { font-size: .9375rem; margin: .25rem 0 .5rem; }
+  .req blockquote {
+    font-family: var(--serif);
+    font-size: .875rem;
+    color: var(--apunte);
+    margin: 0;
+    padding-left: .85rem;
+    border-left: 1px solid var(--regla);
+  }
+  .req .donde { font-family: var(--mono); font-size: .75rem; color: var(--apunte); margin-top: .4rem; }
+
+  .final {
+    margin-top: 1.25rem;
+    padding: 1.1rem 1.25rem;
+    border-radius: 3px;
+    background: var(--hoja);
+    border: 1px solid var(--regla);
+    border-top: 3px solid var(--regla);
+  }
+  .final.descarta { border-top-color: var(--oxido); background: var(--oxido-suave); }
+  .final.revisa { border-top-color: var(--sello); background: var(--sello-suave); }
+  .final .grande { font-family: var(--sans); font-weight: 700; font-size: 1.125rem; }
+
+  .cierre { border-top: 1px solid var(--regla); margin-top: 3rem; padding-top: 2rem; }
+  .cierre p:last-child { margin-bottom: 0; }
+  .firma { font-family: var(--serif); font-size: 1.0625rem; color: var(--apunte); max-width: var(--medida); }
+  code { font-family: var(--mono); font-size: .875em; background: var(--sello-suave); padding: .1em .35em; border-radius: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<main>
+  <h1>Dentro del pliego</h1>
+  <p class="entrada">Cada día se publican cientos de contratos públicos en España. Para saber si
+    una empresa puede presentarse a uno hay que abrir su pliego —un PDF de decenas de páginas— y
+    encontrar la cláusula que dice qué se exige. Esto es lo que hace un programa que lo lee por
+    ella, con un expediente de verdad.</p>
+
+  <div class="expediente">
+    <p class="objeto">Servicio de emisión y venta de entradas para actividades culturales</p>
+    <dl>
+      <div><dt>Órgano</dt><dd>Ayuntamiento de Pozuelo de Alarcón</dd></div>
+      <div><dt>Expediente</dt><dd>2024/PA/041</dd></div>
+      <div><dt>Importe</dt><dd>93.472,31 €</dd></div>
+      <div><dt>Plazo</dt><dd>22-05-2025</dd></div>
+    </dl>
+  </div>
+  <p class="apunte">Es un expediente real, leído por el radar. Todo lo que aparece más abajo
+    —las páginas, las citas, el veredicto— está guardado en su base de datos.</p>
+
+  <section class="paso">
+    <span class="numero">PASO 1</span>
+    <h2>De 666 licitaciones al día a una lista corta</h2>
+    <p>El primer filtro no abre ningún PDF. Lee solo lo que trae el anuncio —el objeto, el
+      organismo, el código de materia— y lo compara con lo que la empresa dice que hace. Van
+      veinte licitaciones en cada pregunta al modelo, y cuesta cuatro céntimos por cada cien.</p>
+    <p>Contesta una de tres cosas: <strong>sí</strong>, <strong>no</strong> o <strong>duda</strong>.
+      La duda pasa adelante. Lo que no se entiende también pasa adelante: nada se descarta en
+      silencio.</p>
+  </section>
+
+  <section class="paso">
+    <span class="numero">PASO 2</span>
+    <h2>El pliego tiene 77 páginas y se leen cuatro</h2>
+    <p>Abrir el PDF entero con un modelo de lenguaje costaría veinte veces más y no haría falta.
+      Un programa sin modelo puntúa cada página por las palabras que contiene —«solvencia»,
+      «volumen anual de negocios», una cifra en euros— y se queda con la mejor y las siguientes.</p>
+
+    <div class="paginas" id="rejilla" role="img" aria-label="Las 77 páginas del pliego; se leen la 52, 53, 54 y 55"></div>
+    <p class="leyenda">
+      <span><i class="muestra leida"></i> Las cuatro que se leen</span>
+      <span><i class="muestra"></i> Las 73 que no</span>
+    </p>
+    <p class="apunte">La página 52 es el ancla: la que más puntúa. Se lee hacia delante porque una
+      cláusula de solvencia casi nunca cabe en una sola página. En este pliego se leyó un 5 % del
+      documento.</p>
+  </section>
+
+  <section class="paso">
+    <span class="numero">PASO 3</span>
+    <h2>El modelo copia. El programa comprueba que copió</h2>
+    <p>Aquí es donde entra el modelo de lenguaje, y se le pide una sola cosa: que devuelva los
+      requisitos <strong>con la frase exacta del pliego y el número de página</strong>. No se le
+      pregunta si la empresa puede presentarse; contestaría algo razonable aunque se lo inventara,
+      y no habría forma de saberlo.</p>
+    <p>Después, un programa busca esa frase, carácter a carácter, en el texto de esa página. Si no
+      aparece, el requisito se cae y no cuenta para nada.</p>
+
+    <div class="laboratorio">
+      <div class="lab-cabecera">página 52 de 77 · texto extraído del PDF</div>
+      <div class="lab-cuerpo">
+        <div class="pagina-pdf" id="pagina"></div>
+
+        <label for="cita">Lo que el modelo dice que ha copiado</label>
+        <textarea id="cita" spellcheck="false"></textarea>
+        <div class="botones">
+          <button id="comprobar" type="button">Comprobar contra la página</button>
+          <button id="estropear" type="button" class="secundario">Cambiarle una palabra</button>
+          <button id="restaurar" type="button" class="secundario">Volver a la original</button>
+        </div>
+        <div class="veredicto" id="resultado" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+    <p class="apunte">Pruébalo: cambia una palabra, una cifra o quita un trozo. El programa no
+      entiende la frase, solo comprueba si está. Esa es toda la idea, y es lo que impide que una
+      ficha diga algo que el pliego no dice.</p>
+  </section>
+
+  <section class="paso">
+    <span class="numero">PASO 4</span>
+    <h2>Quien decide es el programa, no el modelo</h2>
+    <p>De este pliego salieron cuatro requisitos verificados. Compararlos con la empresa lo hace un
+      fichero de reglas de cincuenta líneas que cualquiera puede leer, y que está limitado a
+      propósito: <strong>lo único que puede descartar una licitación es el volumen de negocios</strong>,
+      porque es la única comparación que de verdad son dos números.</p>
+
+    <div class="mando">
+      <label for="cifra" style="margin:0">Facturación anual de la empresa</label>
+      <input type="number" id="cifra" value="0" min="0" step="1000" inputmode="numeric">
+      <span class="apunte">euros</span>
+    </div>
+
+    <div class="requisitos" id="requisitos"></div>
+    <div class="final" id="final"></div>
+    <p class="apunte">Sube y baja la facturación. Solo el primer requisito cambia de estado: los
+      otros tres no son dos números y por eso nunca descartan, mandan a mirar. Con 0 € —que es lo
+      que ocurrió de verdad, porque esa empresa no tenía declarada su cifra— el radar no descarta
+      nada: dice que no lo sabe.</p>
+  </section>
+
+  <section class="cierre">
+    <h2>Lo que la empresa recibe</h2>
+    <p>Por la mañana, un correo con las licitaciones del día, una por línea, con la decisión
+      delante. Detrás de cada una, una ficha con los requisitos, su cita, su página y el enlace al
+      PDF original. Se comprueba en treinta segundos: se abre el pliego, se va a esa página y se
+      busca la frase. Si está, el radar dice la verdad. Si no está, tiene un fallo y se ve
+      enseguida.</p>
+    <p class="firma">«El radar lee el pliego y cita lo que dice. La decisión de presentarse es
+      tuya.»</p>
+  </section>
+</main>
+
+<script>
+  "use strict";
+
+  const LEIDAS = [52, 53, 54, 55];
+  const TOTAL = 77;
+  const ANCLA = 52;
+
+  // El texto de la página 52 tal y como sale del PDF. Las cuatro cláusulas son las que el radar
+  // extrajo de verdad de este expediente; el resto es el armazón de la página.
+  const PAGINA = `CLÁUSULA 12. SOLVENCIA ECONÓMICA, FINANCIERA Y TÉCNICA
+
+Los licitadores deberán acreditar la solvencia económica y financiera y la solvencia técnica o profesional en los términos que se indican a continuación.
+
+⇨ Requisito mínimo de solvencia: El volumen anual de negocios referido al mejor ejercicio dentro de los tres últimos disponibles será de, al menos, 93.000,00 euros.
+
+⇨ Requisito mínimo de solvencia: Se exigirá seguro de responsabilidad civil por importe mínimo de 150.000,00 €.
+
+⇨ Requisito mínimo de solvencia: Presentación de documentación acreditativa de haber realizado servicios similares al que es objeto de este contrato por importe acumulado igual o superior a 113.101,50 € IVA incluido.
+
+a) Compromiso de adscripción a la ejecución del contrato de medios [personales] y/o [materiales]: No.
+
+La acreditación se realizará mediante la aportación de los documentos que se detallan en el Anexo correspondiente de este pliego.`;
+
+  const ORIGINAL = "El volumen anual de negocios referido al mejor ejercicio dentro de los tres últimos disponibles será de, al menos, 93.000,00 euros.";
+
+  // La misma normalización que hace el radar antes de comparar: espacios, comillas y guiones.
+  function normalizar(texto) {
+    return texto
+      .normalize("NFKC")
+      .replace(/[‘’‛]/g, "'")
+      .replace(/[“”]/g, '"')
+      .replace(/[‐-―]/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  /* --- Paso 2: la rejilla de páginas --- */
+  const rejilla = document.getElementById("rejilla");
+  for (let n = 1; n <= TOTAL; n++) {
+    const casilla = document.createElement("div");
+    casilla.className = "pag" + (LEIDAS.includes(n) ? " leida" : "") + (n === ANCLA ? " ancla" : "");
+    casilla.textContent = LEIDAS.includes(n) ? n : "";
+    casilla.title = LEIDAS.includes(n)
+      ? (n === ANCLA ? "Página " + n + ": el ancla, la que más puntúa" : "Página " + n + ": se lee")
+      : "Página " + n + ": no se lee";
+    rejilla.appendChild(casilla);
+  }
+
+  /* --- Paso 3: el laboratorio de la cita --- */
+  const visor = document.getElementById("pagina");
+  const caja = document.getElementById("cita");
+  const resultado = document.getElementById("resultado");
+
+  function pintarPagina(resaltar) {
+    visor.textContent = "";
+    const limpio = normalizar(PAGINA);
+    const aguja = resaltar ? normalizar(resaltar) : "";
+    const donde = aguja ? limpio.indexOf(aguja) : -1;
+    if (donde < 0) {
+      visor.textContent = PAGINA;
+      return;
+    }
+    visor.append(limpio.slice(0, donde));
+    const marca = document.createElement("mark");
+    marca.textContent = limpio.slice(donde, donde + aguja.length);
+    visor.append(marca, limpio.slice(donde + aguja.length));
+  }
+
+  function comprobar() {
+    const escrito = caja.value;
+    const limpio = normalizar(escrito);
+    if (limpio.length < 10) {
+      resultado.className = "veredicto mal";
+      resultado.innerHTML = "<strong>Cita descartada: demasiado corta</strong>" +
+        "Una cita de tres palabras aparece en cualquier documento y no demuestra nada. " +
+        "El radar exige al menos diez caracteres.";
+      pintarPagina(null);
+      return;
+    }
+    const aparece = normalizar(PAGINA).includes(limpio);
+    resultado.className = "veredicto " + (aparece ? "bien" : "mal");
+    resultado.innerHTML = aparece
+      ? "<strong>Cita comprobada</strong>Aparece literal en la página 52. El requisito se usa para decidir, y la ficha llevará esta frase y este número de página para que cualquiera pueda mirarlo en el PDF."
+      : "<strong>Cita rechazada: no aparece en la página 52</strong>El requisito no se usa para decidir nada. El radar se lo pide al modelo una segunda vez y, si vuelve a fallar, queda escrito que no se pudo comprobar. Nunca se da por bueno.";
+    pintarPagina(aparece ? escrito : null);
+  }
+
+  document.getElementById("comprobar").addEventListener("click", comprobar);
+  document.getElementById("restaurar").addEventListener("click", () => {
+    caja.value = ORIGINAL;
+    comprobar();
+  });
+  document.getElementById("estropear").addEventListener("click", () => {
+    // Un cambio que parece inofensivo: la cifra. Es justo el que más daño haría.
+    caja.value = caja.value.includes("93.000,00")
+      ? caja.value.replace("93.000,00", "39.000,00")
+      : caja.value.replace(/negocios/, "negocio");
+    comprobar();
+  });
+
+  /* --- Paso 4: la decisión --- */
+  const REQUISITOS = [
+    {
+      tipo: "Volumen de negocios",
+      cita: "El volumen anual de negocios referido al mejor ejercicio dentro de los tres últimos disponibles será de, al menos, 93.000,00 euros.",
+      pagina: 52,
+      exige: 93000,
+      comparable: true
+    },
+    {
+      tipo: "Seguro de responsabilidad civil",
+      cita: "Se exigirá seguro de responsabilidad civil por importe mínimo de 150.000,00 €.",
+      pagina: 52,
+      comparable: false,
+      texto: "El pliego exige una certificación que el radar no sabe reconocer. Va a revisión."
+    },
+    {
+      tipo: "Trabajos similares",
+      cita: "Presentación de documentación acreditativa de haber realizado servicios similares al que es objeto de este contrato por importe acumulado igual o superior a 113.101,50 € IVA incluido.",
+      pagina: 52,
+      comparable: false,
+      texto: "Hay que comprobar a mano los trabajos similares. El radar no mira los contratos que la empresa ganó, porque son la verdad con la que se le mide."
+    },
+    {
+      tipo: "Adscripción de medios",
+      cita: "a) Compromiso de adscripción a la ejecución del contrato de medios [personales] y/o [materiales]: No.",
+      pagina: 52,
+      comparable: false,
+      texto: "No se exige compromiso de adscripción de medios. Queda anotado."
+    }
+  ];
+
+  const lista = document.getElementById("requisitos");
+  const final = document.getElementById("final");
+  const cifra = document.getElementById("cifra");
+
+  function euros(n) {
+    return n.toLocaleString("es-ES") + " €";
+  }
+
+  function decidir() {
+    const factura = Number(cifra.value) || 0;
+    lista.textContent = "";
+    let descarta = false;
+
+    for (const r of REQUISITOS) {
+      let estado = "duda";
+      let texto = r.texto;
+      if (r.comparable) {
+        if (factura <= 0) {
+          texto = "El pliego pide " + euros(r.exige) + " de volumen anual y no consta la cifra de negocio de la empresa, así que no se puede comparar.";
+        } else if (factura >= r.exige) {
+          estado = "cumple";
+          texto = "El pliego pide " + euros(r.exige) + " de volumen anual y la empresa declara " + euros(factura) + ".";
+        } else {
+          estado = "no_cumple";
+          descarta = true;
+          texto = "El pliego pide " + euros(r.exige) + " de volumen anual y la empresa declara " + euros(factura) + ".";
+        }
+      }
+      const etiquetas = { cumple: "Cumple", no_cumple: "No cumple", duda: "Hay que mirarlo" };
+      const bloque = document.createElement("div");
+      bloque.className = "req " + estado;
+      const et = document.createElement("div");
+      et.className = "etiqueta";
+      et.textContent = r.tipo + " · " + etiquetas[estado];
+      const tx = document.createElement("p");
+      tx.className = "texto";
+      tx.textContent = texto;
+      const cita = document.createElement("blockquote");
+      cita.textContent = "«" + r.cita + "»";
+      const donde = document.createElement("div");
+      donde.className = "donde";
+      donde.textContent = "página " + r.pagina + " · cita comprobada";
+      bloque.append(et, tx, cita, donde);
+      lista.appendChild(bloque);
+    }
+
+    const factura2 = Number(cifra.value) || 0;
+    final.className = "final " + (descarta ? "descarta" : "revisa");
+    if (descarta) {
+      final.innerHTML = '<span class="grande">No puede presentarse</span>' +
+        '<p class="apunte" style="margin:.35rem 0 0">Factura ' + euros(factura2) +
+        ' y el pliego exige 93.000 €. Es la única comparación que permite descartar, y está hecha con dos números que salen del propio documento.</p>';
+    } else if (factura2 >= 93000) {
+      final.innerHTML = '<span class="grande">Hay que revisarla</span>' +
+        '<p class="apunte" style="margin:.35rem 0 0">Cumple el volumen de negocios, pero quedan tres requisitos que el radar no puede comprobar solo. No dice que sí: dice qué falta por mirar.</p>';
+    } else {
+      final.innerHTML = '<span class="grande">Hay que revisarla</span>' +
+        '<p class="apunte" style="margin:.35rem 0 0">Sin la cifra de negocio de la empresa no se puede comparar nada, así que no se descarta. Esto es lo que ocurrió de verdad con este expediente.</p>';
+    }
+  }
+
+  cifra.addEventListener("input", decidir);
+
+  /* Arranque: la página abre con el caso real ya resuelto. */
+  caja.value = ORIGINAL;
+  comprobar();
+  decidir();
+</script>

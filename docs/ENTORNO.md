@@ -207,6 +207,7 @@ Todos se ejecutan en una terminal, dentro de la carpeta del proyecto.
 | Leer un solo expediente de punta a punta | `uv run python -m radar.grafo --licitacion 65034 --empresa "Empresa A"` |
 | Generar la ficha HTML de una licitación | `uv run python -m radar.ficha --licitacion 65034 --empresa "Empresa A"` |
 | Ver el correo del día sin enviarlo | `uv run python -m radar.correo --empresa "Empresa A"` |
+| Abrir la explicación interactiva del proceso | `docs/dentro_del_pliego.html` |
 | Ver qué haría hoy el radar con cada cliente, sin gastar | `uv run python -m radar.diario` |
 | …hacerlo de verdad (tría y lee, hasta el tope de cada uno) | `uv run python -m radar.diario --gastar` |
 | …solo para una empresa | `uv run python -m radar.diario --empresa "Empresa del Norte" --gastar` |
