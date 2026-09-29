@@ -197,9 +197,34 @@ su primera publicación era de 2024 y no se veía porque el histórico empezaba 
 contratos ganados de las empresas de test pasan de 77 a 66. El recall del agente recalculado se
 queda igual (74,2 % frente al 74,0 % publicado), pero faltan los baselines.
 
-**Está sin decidir qué se publica, y hay tres opciones escritas en `docs/HALLAZGO_UNIVERSO.md`.**
-Hasta que se decida, el proyecto está en un estado que no vale: con 2024 a medio cargar, ni el
-universo viejo ni el nuevo son ciertos.
+Decidido en `docs/DECISIONES.md` D44: se completa 2024 y se vuelve a medir. **Hasta que se
+complete, el proyecto está en un estado que no vale: con 2024 a medio cargar, ni el universo
+viejo ni el nuevo son ciertos.**
+
+### Cómo se retoma (29-09-2026, con tres meses de doce cargados)
+
+La carga es reanudable: los meses terminados están en `historico_meses` y no se vuelven a pedir,
+y lo ya descargado tampoco. Cerrar el ordenador no pierde nada. Estos cuatro pasos, en orden:
+
+```bash
+docker compose up -d                                     # la base, si no está levantada
+uv run python -m radar.historico --desde 2024-01 --hasta 2024-12   # sigue donde lo dejó
+uv run python -m radar.evaluacion.baselines --desde 2025-01-01 --hasta 2025-07-01 --corte 2026-09-01
+uv run python -m radar.evaluacion.agente --solo-medir     # M1 y M2 con el periodo corregido
+uv run python -m radar.evaluacion.eficiencia --guardar    # M9 y M10, que salen de M2
+uv run python -m radar.evaluacion --informe               # regenera fase5_resultados.md
+uv run --with reportlab python docs/dossier.py            # regenera el PDF
+```
+
+**Ninguno de esos comandos llama al modelo**, así que no cuesta nada: los triajes están
+guardados y lo único que cambia es qué expedientes cuentan.
+
+Se puede acelerar la carga lanzando un segundo proceso por el otro extremo del año (por ejemplo
+`--desde 2024-08 --hasta 2024-10`): es idempotente y los dos se reparten los meses sin pisarse.
+
+Al terminar, `uv run python -m radar.diagnostico` debe dejar de avisar de que el universo no
+coincide, y queda por actualizar a mano `docs/informes/fase5_diagnostico.md`, que lo escribe una
+persona y no un comando.
 
 ## Cambios fuera de fase (backlog)
 

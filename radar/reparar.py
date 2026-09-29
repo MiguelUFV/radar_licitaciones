@@ -65,14 +65,18 @@ UPDATE ejecuciones
 SET fin = now(), estado = 'error',
     mensaje = coalesce(mensaje || ' ', '') ||
               'La pasada se cortó y nadie la cerró; la cerró radar.reparar.'
-WHERE fin IS NULL AND inicio < now() - make_interval(hours => %s)
+WHERE fin IS NULL AND inicio < now() - make_interval(secs => %s)
 """
 
 
-def cerrar_cortadas(horas: int = 2) -> int:
-    """Cierra las ejecuciones que llevan más de `horas` sin terminar. Devuelve cuántas."""
+def cerrar_cortadas(horas: float = 2) -> int:
+    """Cierra las ejecuciones que llevan más de `horas` sin terminar. Devuelve cuántas.
+
+    En segundos por dentro: `make_interval(hours => ...)` solo acepta enteros, y al poder pedir
+    media hora desde la línea de comandos el comando reventaba con un error de tipos.
+    """
     with conectar() as conexion, conexion.cursor() as cur:
-        cur.execute(CORTADAS, (horas,))
+        cur.execute(CORTADAS, (float(horas) * 3600,))
         cuantas = cur.rowcount
         conexion.commit()
     return cuantas
@@ -84,13 +88,16 @@ def main() -> int:
     parser.add_argument(
         "--ejecuciones", action="store_true", help="cierra las pasadas que se quedaron a medias"
     )
+    # Dos horas es el tope normal, el mismo que usa el diagnóstico para avisar. Se puede bajar
+    # cuando se acaba de parar una carga a propósito y se sabe que esas pasadas ya no siguen.
+    parser.add_argument("--horas", type=float, default=2.0, help="antigüedad mínima para cerrarlas")
     args = parser.parse_args()
     if not (args.textos or args.ejecuciones):
         parser.print_help()
         return 0
     try:
         if args.ejecuciones:
-            print(f"ejecuciones cortadas que se han cerrado: {cerrar_cortadas()}")
+            print(f"ejecuciones cortadas que se han cerrado: {cerrar_cortadas(args.horas)}")
         if args.textos:
             for tabla, cuantos in limpiar_textos().items():
                 print(f"{tabla}: {cuantos} textos arreglados")

@@ -81,3 +81,19 @@ def test_una_ejecucion_cortada_se_cierra_diciendo_que_se_corto(bd):
     assert cortada[1] == "error" and "cortó" in cortada[2]
     assert viva[1] == "en_curso", "una que acaba de empezar no se toca"
     assert reparar.cerrar_cortadas(horas=2) == 0
+
+
+def test_se_pueden_cerrar_las_recien_paradas(bd):
+    # Al parar una carga a proposito, sus ejecuciones quedan abiertas y no llevan dos horas.
+    # Con --horas 0 se cierran las de ahora mismo, que es lo que hace falta en ese momento.
+    with bd() as conexion, conexion.cursor() as cur:
+        cur.execute(
+            "INSERT INTO ejecuciones (run_id, tipo, inicio) VALUES"
+            " (gen_random_uuid(), 'historica', now() - interval '2 minutes')"
+        )
+        conexion.commit()
+    assert reparar.cerrar_cortadas(horas=2) == 0, "una de hace dos minutos no es una colgada"
+    # Con decimales, que es lo que manda el CLI: `make_interval(hours => ...)` solo acepta
+    # enteros y el comando reventaba con un error de tipos de PostgreSQL.
+    assert reparar.cerrar_cortadas(horas=0.5) == 0
+    assert reparar.cerrar_cortadas(horas=0.0) == 1
