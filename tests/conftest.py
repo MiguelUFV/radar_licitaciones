@@ -212,3 +212,18 @@ def pdf_con_paginas(textos: list[str]) -> bytes:
         salida += b"%010d 00000 n \n" % posiciones.get(numero, 0)
     salida += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (ultimo + 1, inicio)
     return bytes(salida)
+
+
+@pytest.fixture(autouse=True)
+def ningun_test_escribe_en_docs(monkeypatch, tmp_path):
+    """Ningún test escribe en `docs/`, igual que ninguno escribe en `data/`.
+
+    El 30-09-2026 `git status` sacó `docs/perfiles_congelados.md` modificado después de pasar
+    los tests: `congelar()` recibía una carpeta de perfiles de prueba pero escribía el registro
+    en su ruta por defecto, que es un documento **congelado**. La huella no cambiaba, la fecha
+    sí. Se arregla en el sitio, y además se desvía aquí para todos: el fallo era fácil de
+    repetir y difícil de ver, porque solo se nota mirando `git status` después de los tests.
+    """
+    from radar import perfiles
+
+    monkeypatch.setattr(perfiles, "PUBLICO", tmp_path / "perfiles_congelados.md")

@@ -1,5 +1,7 @@
 """Congelado de los perfiles: lo que impide cambiarlos despues de medir."""
 
+from pathlib import Path
+
 import pytest
 
 from radar import perfiles
@@ -163,3 +165,23 @@ def test_un_perfil_sin_esa_linea_no_da_cifra():
 def test_una_cifra_exacta_tambien_se_lee():
     importe, _ = perfiles.cifra_de("| Cifra anual de negocio | 812.450 € | Cuentas depositadas |\n")
     assert importe == 812450.0
+
+
+def test_congelar_en_una_carpeta_de_pruebas_no_reescribe_el_registro_de_verdad(bd, tmp_path):
+    """El 30-09-2026 `git status` sacó `docs/perfiles_congelados.md` modificado después de
+    pasar los tests: `congelar()` recibía la carpeta de perfiles de prueba, pero escribía el
+    registro en su ruta por defecto, que es un documento congelado y versionado. La huella no
+    cambiaba, la fecha sí, y nadie lo habría notado hasta que el candado del diagnóstico
+    avisara de que el documento congelado se ha tocado.
+    """
+    # La ruta de verdad, escrita aquí a propósito: `perfiles.PUBLICO` lo desvía la fixture
+    # `ningun_test_escribe_en_docs`, y lo que se vigila es justo el fichero del repositorio.
+    real = Path("docs/perfiles_congelados.md")
+    de_verdad = real.read_text(encoding="utf-8")
+    sembrar_empresa(bd)
+    (tmp_path / "perfil_empresa_a.md").write_text(PERFIL, encoding="utf-8")
+
+    perfiles.congelar(tmp_path, registro=tmp_path / "registro.md")
+
+    assert real.read_text(encoding="utf-8") == de_verdad
+    assert (tmp_path / "registro.md").exists()

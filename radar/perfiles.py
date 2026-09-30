@@ -109,7 +109,10 @@ def cargar_cifras() -> list[tuple[str, float | None, str | None]]:
     return resultados
 
 
-def congelar(carpeta: Path = CARPETA, rehacer: bool = False) -> dict:
+def congelar(carpeta: Path = CARPETA, rehacer: bool = False, registro: Path | None = None) -> dict:
+    # `registro` se resuelve aquí y no en la firma para que se pueda desviar durante los
+    # tests: sin eso, congelar perfiles de prueba reescribía `docs/perfiles_congelados.md`,
+    # que es un documento congelado y versionado.
     ficheros = sorted(carpeta.glob("perfil_empresa_*.md")) if carpeta.exists() else []
     if not ficheros:
         raise ErrorRadar(f"No hay ningún perfil en {carpeta.as_posix()}.")
@@ -143,7 +146,7 @@ def congelar(carpeta: Path = CARPETA, rehacer: bool = False) -> dict:
                 )
                 resumen["congelados"] += 1
         conexion.commit()
-        resumen["registro"] = escribir_registro(conexion)
+        resumen["registro"] = escribir_registro(conexion, registro or PUBLICO)
     return resumen
 
 
