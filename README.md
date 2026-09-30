@@ -161,6 +161,14 @@ Los datos no se distribuyen: `data/` está fuera de git y se reconstruye desde l
 | [`docs/DATOS.md`](docs/DATOS.md) | Trazabilidad del dato de extremo a extremo |
 | [`docs/informes/`](docs/informes/) | Un informe por fase, con la evidencia de su puerta de salida |
 
+Y el proyecto entero explicado para quien no lo ha visto nunca, en PDF y en Word:
+`docs/dossier_radar_de_licitaciones.pdf` y `.docx`. Los dos los genera el mismo comando, de una
+sola lectura de la base, para que no puedan decir cosas distintas:
+
+```bash
+uv run --with reportlab --with python-docx python docs/dossier.py
+```
+
 ## Licencia y fuente
 
 Código bajo licencia MIT (ver [`LICENSE`](LICENSE)). Los datos son de la Plataforma de

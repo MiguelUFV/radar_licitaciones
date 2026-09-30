@@ -231,7 +231,7 @@ uv run python -m radar.evaluacion.baselines --desde 2025-01-01 --hasta 2025-07-0
 uv run python -m radar.evaluacion.agente --solo-medir     # M1 y M2 con el periodo corregido
 uv run python -m radar.evaluacion.eficiencia --guardar    # M9 y M10, que salen de M2
 uv run python -m radar.evaluacion --informe               # regenera fase5_resultados.md
-uv run --with reportlab python docs/dossier.py            # regenera el PDF
+uv run --with reportlab --with python-docx python docs/dossier.py  # regenera el PDF y el Word
 ```
 
 **Ninguno de esos comandos llama al modelo**, así que no cuesta nada: los triajes están

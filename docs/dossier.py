@@ -1,6 +1,6 @@
-"""El dossier del proyecto en PDF: qué hace el radar, cómo funciona y qué se midió.
+"""El dossier del proyecto en PDF y en Word: qué hace el radar, cómo funciona y qué se midió.
 
-    uv run --with reportlab python docs/dossier.py
+    uv run --with reportlab --with python-docx python docs/dossier.py
 
 Está escrito para alguien que no ha visto nunca el proyecto y que no programa. Por eso empieza
 por el problema y no por la arquitectura, y por eso las cifras van con su fuente al lado.
@@ -10,14 +10,24 @@ por el problema y no por la arquitectura, y por eso las cifras van con su fuente
 licitaciones hay cargadas, cuánto se lleva gastado— se leen de la base al generar el PDF. Si el
 PDF dice un número, ese número se puede reproducir.
 
-reportlab no está en las dependencias del proyecto a propósito: el radar no necesita hacer PDF
-para funcionar. Se trae solo cuando se genera el dossier.
+reportlab y python-docx no están en las dependencias del proyecto a propósito: el radar no
+necesita hacer documentos para funcionar. Se traen solo cuando se genera el dossier.
+
+**El Word no es un documento aparte.** Se escribe recorriendo los mismos elementos con los que
+se compone el PDF, así que no hay dos versiones que puedan decir cosas distintas. Había dos .docx
+escritos a mano el 24-09-2026 y se quedaron viejos en cuanto se midió nada; por eso este se
+genera con el mismo comando que el PDF y no se escribe a mano.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
+from docx import Document
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Pt, RGBColor
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_JUSTIFY
 from reportlab.lib.pagesizes import A4
@@ -263,6 +273,13 @@ def del_radar() -> dict:
     FROM eval_resultados WHERE metrica IN ('M9', 'M10')
     ORDER BY metrica, variante, alias, calculada_en DESC
     """
+    # El resultado del estudio. Estaba escrito a mano en el apartado 4 y en otros tres sitios, y
+    # al corregir el universo el 30-09-2026 se quedó viejo sin que nadie lo notara: el dossier
+    # siguió diciendo 74,0 % y «19 de 20» cuando ya eran 69,2 % y 16 de 16. Ahora sale de aquí.
+    RESULTADO = """
+    SELECT DISTINCT ON (variante) variante, valor, ic_inferior, ic_superior, n, detalle
+    FROM eval_resultados WHERE metrica = 'M1_diferencia' ORDER BY variante, calculada_en DESC
+    """
     # Un requisito de verdad, con su cita y su página, para no poner un ejemplo inventado en un
     # documento que trata justamente de que nada sea inventado.
     UNO_DE_VERDAD = """
@@ -284,13 +301,36 @@ def del_radar() -> dict:
             fila = cur.fetchone()
             cur.execute(EFICIENCIA)
             eficiencia = cur.fetchall()
+            cur.execute(RESULTADO)
+            resultado = cur.fetchall()
     except Exception:  # noqa: BLE001  el dossier se puede generar sin la base delante
         return {"pruebas": datos["pruebas"], "sin_base": True}
     if fila:
         campos = ("cita", "pagina", "importe", "paginas_totales", "organo", "expediente")
         datos["ejemplo"] = dict(zip(campos, fila, strict=True))
     datos["eficiencia"] = {(m, v, a): float(x) for m, v, a, x in eficiencia}
+    datos["resultado"] = {
+        v.replace("agente_menos_", "").replace("_test", ""): {
+            "diferencia": float(valor),
+            "ic": (float(bajo), float(alto)),
+            "contratos": n,
+            **(detalle or {}),
+        }
+        for v, valor, bajo, alto, n, detalle in resultado
+    }
     return datos
+
+
+def perdidos(hoy: dict) -> str:
+    """Cuántos contratos ganados se le escaparon al radar, contados y no escritos a mano.
+
+    Sale del recall y del número de contratos, que es de donde salen también las tablas: así
+    no puede decir 16 aquí y 20 tres apartados más abajo.
+    """
+    uno = next(iter((hoy.get("resultado") or {}).values()), None)
+    if not uno:
+        return "casi todos los"
+    return str(round(uno["contratos"] * (1 - uno["recall_agente"])))
 
 
 def limpia(cita: str) -> str:
@@ -591,7 +631,33 @@ def la_ficha(hoy: dict) -> list:
     ]
 
 
-def la_medicion() -> list:
+def por_ciento(x: float) -> str:
+    return f"{x * 100:.1f} %".replace(".", ",")
+
+
+def puntos(x: float) -> str:
+    return f"{'−' if x < 0 else '+'}{abs(x) * 100:.1f} puntos".replace(".", ",")
+
+
+def comparacion(hoy: dict, clave: str, titulo: str) -> list[str]:
+    """Una fila de la tabla del resultado, leída de `eval_resultados` y no escrita a mano."""
+    r = (hoy.get("resultado") or {}).get(clave)
+    if not r:
+        return [titulo, "—", "—", "—", "(la base no respondió al generar el documento)"]
+    bajo, alto = r["ic"]
+    veredicto = r.get("veredicto", "")
+    refutada = veredicto == "refutada"
+    return [
+        titulo,
+        por_ciento(r["recall_agente"]),
+        por_ciento(r["recall_baseline"]),
+        f"<b>{puntos(r['diferencia'])}</b>" if refutada else puntos(r["diferencia"]),
+        f"[{puntos(bajo)}, {puntos(alto)}] &rarr; "
+        f"{f'<b>tesis {veredicto}</b>' if refutada else veredicto}".replace(" puntos", ""),
+    ]
+
+
+def la_medicion(hoy: dict) -> list:
     triaje = [
         ["Variante probada", "Aciertos", "Licitaciones que deja pasar", "Coste por 100"],
         ["Modelo barato, de 20 en 20", "24 de 24", "37,9 y 53,0 de 100", "<b>0,0403 €</b>"],
@@ -600,20 +666,8 @@ def la_medicion() -> list:
     ]
     resultado = [
         ["Comparación", "Radar", "Rival", "Diferencia", "Intervalo de confianza"],
-        [
-            "Frente al filtro CPV estándar",
-            "74,0 %",
-            "81,8 %",
-            "−7,8 puntos",
-            "[−23,4, +7,8] &rarr; no concluyente",
-        ],
-        [
-            "Frente al filtro hecho a medida",
-            "74,0 %",
-            "88,3 %",
-            "<b>−14,3 puntos</b>",
-            "[−26,0, −3,9] &rarr; <b>tesis refutada</b>",
-        ],
+        comparacion(hoy, "baseline_a", "Frente al filtro CPV estándar"),
+        comparacion(hoy, "baseline_b", "Frente al filtro hecho a medida"),
     ]
     return [
         p("4. Qué se midió, y qué salió", "seccion"),
@@ -749,7 +803,7 @@ def lo_que_cuesta_cada_acierto(hoy: dict) -> list:
     ]
 
 
-def el_formulario() -> list:
+def el_formulario(hoy: dict) -> list:
     return [
         p("5. La consecuencia: un formulario que pregunta lo que nadie cuenta", "seccion"),
         p(
@@ -767,7 +821,7 @@ def el_formulario() -> list:
                 ["La pregunta", "Por qué está ahí"],
                 [
                     "<b>Marcas y productos que distribuye, instala o mantiene</b>",
-                    "Aquí estaban 19 de los 20 contratos que el radar dejó escapar en la medición.",
+                    f"Aquí estaban los {perdidos(hoy)} contratos que el radar dejó escapar en la medición.",
                 ],
                 [
                     "<b>Otros servicios que presta, aunque no sean su bandera</b>",
@@ -951,7 +1005,7 @@ def los_fallos() -> list:
     ]
 
 
-def los_limites() -> list:
+def los_limites(hoy: dict) -> list:
     return [
         p("9. Lo que el radar no hace", "seccion"),
         p(
@@ -965,7 +1019,7 @@ def los_limites() -> list:
                 ["Límite", "Qué significa"],
                 [
                     "<b>El techo es el perfil de la empresa</b>",
-                    "Medido: 19 de los 20 contratos perdidos eran productos que el perfil no "
+                    f"Medido: los {perdidos(hoy)} contratos perdidos eran productos que el perfil no "
                     "nombraba. Si el perfil está mal, la decisión también.",
                 ],
                 [
@@ -1004,7 +1058,7 @@ def los_limites() -> list:
     ]
 
 
-def el_cierre() -> list:
+def el_cierre(hoy: dict) -> list:
     return [
         p("10. Qué demuestra este proyecto", "seccion"),
         p(
@@ -1029,8 +1083,8 @@ def el_cierre() -> list:
                 ],
                 [
                     "<b>Que un diagnóstico vale más que un resultado bonito</b>",
-                    "La medición no solo dijo que la tesis fallaba: dijo dónde. 19 de 20 contratos "
-                    "perdidos por lo mismo, y de ahí salió el formulario que lo arregla.",
+                    f"La medición no solo dijo que la tesis fallaba: dijo dónde. Los {perdidos(hoy)} "
+                    "contratos perdidos, por lo mismo, y de ahí salió el formulario que lo arregla.",
                 ],
                 [
                     "<b>Que el coste se puede controlar</b>",
@@ -1111,10 +1165,120 @@ def en_que_punto_esta(hoy: dict) -> list:
     ]
 
 
-def construir() -> Path:
-    hoy = del_radar()
+# --- La misma historia, en Word --------------------------------------------------------
+
+SALIDA_DOCX = Path("docs/dossier_radar_de_licitaciones.docx")
+
+# Lo único que el PDF escribe como marcado. Se traduce, no se borra: quitar un &nbsp; partiría
+# «4,7 páginas» por la mitad al final de una línea, que es justo para lo que está puesto.
+ENTIDADES = {"&nbsp;": " ", "&rarr;": "→", "&mdash;": "—", "&amp;": "&"}
+NIVELES = {"titulo": 0, "seccion": 1, "sub": 2}
+GRIS = RGBColor(0x5A, 0x62, 0x70)
+
+
+def trozos(marcado: str):
+    """El texto de un párrafo, partido en (texto, negrita) y con los saltos ya puestos."""
+    for entidad, signo in ENTIDADES.items():
+        marcado = marcado.replace(entidad, signo)
+    for parte in re.split(r"(<b>.*?</b>)", marcado.replace("<br/>", "\n"), flags=re.S):
+        if parte:
+            yield re.sub(r"</?b>", "", parte), parte.startswith("<b>")
+
+
+def pintar(parrafo, marcado: str, estilo: str) -> None:
+    for texto, negrita in trozos(marcado):
+        for i, linea in enumerate(texto.split("\n")):
+            if i:
+                parrafo.add_run().add_break()
+            if not linea:
+                continue
+            letra = parrafo.add_run(linea)
+            letra.bold = negrita or estilo == "portadanum"
+            letra.italic = estilo in ("cita", "subtitulo")
+            if estilo == "codigo":
+                letra.font.name = "Consolas"
+            if estilo in ("nota", "codigo"):
+                letra.font.size = Pt(9)
+            if estilo in ("nota", "subtitulo"):
+                letra.font.color.rgb = GRIS
+
+
+def raya(documento) -> None:
+    """La regla horizontal del PDF, que en Word es un borde inferior de un párrafo vacío."""
+    borde, abajo = OxmlElement("w:pBdr"), OxmlElement("w:bottom")
+    for clave, valor in (("val", "single"), ("sz", "4"), ("space", "1"), ("color", "D5D0C4")):
+        abajo.set(qn(f"w:{clave}"), valor)
+    borde.append(abajo)
+    documento.add_paragraph()._p.get_or_add_pPr().append(borde)
+
+
+def celdas(fila) -> list[str]:
+    """Una celda es un Paragraph de reportlab, salvo en la regla, donde es una cadena vacía."""
+    return [getattr(c, "text", c) or "" for c in fila]
+
+
+def aplanar(historia: list):
+    for elemento in historia:
+        if isinstance(elemento, KeepTogether):
+            yield from aplanar(elemento._content)
+        else:
+            yield elemento
+
+
+def a_docx(historia: list, destino: Path = SALIDA_DOCX) -> Path:
+    documento = Document()
+    documento.core_properties.title = "Radar de licitaciones que lee el pliego"
+    documento.core_properties.author = "Miguel Martin-Caro"
+    documento.core_properties.subject = "Como funciona, que se midio y que salio"
+    for elemento in aplanar(historia):
+        if isinstance(elemento, PageBreak):
+            documento.add_page_break()
+        elif isinstance(elemento, Paragraph):
+            estilo = elemento.style.name
+            parrafo = (
+                documento.add_heading(level=NIVELES[estilo])
+                if estilo in NIVELES
+                else documento.add_paragraph()
+            )
+            pintar(parrafo, elemento.text, estilo)
+        elif isinstance(elemento, Table):
+            filas = [celdas(f) for f in elemento._cellvalues]
+            if filas == [[""]]:  # la regla horizontal, que es una tabla de una celda vacía
+                raya(documento)
+                continue
+            # Sin cuadrícula, como en el PDF: la cabecera en negrita es lo único que la marca.
+            tabla_w = documento.add_table(rows=len(filas), cols=len(filas[0]))
+            for i, fila in enumerate(filas):
+                for j, texto in enumerate(fila):
+                    pintar(tabla_w.cell(i, j).paragraphs[0], texto, "portadanum" if i == 0 else "cuerpo")
+    documento.save(str(destino))
+    return destino
+
+
+def historia_de(hoy: dict) -> list:
+    """El dossier entero, en orden. Se construye una vez por formato porque al maquetar el PDF
+    reportlab parte y envuelve sus propios elementos, y no conviene darle los mismos dos veces."""
+    return (
+        portada(hoy)
+        + el_problema(hoy)
+        + como_funciona()
+        + la_ficha(hoy)
+        + la_medicion(hoy)
+        + lo_que_cuesta_cada_acierto(hoy)
+        + el_formulario(hoy)
+        + lo_que_cuesta(hoy)
+        + como_esta_hecho(hoy)
+        + los_fallos()
+        + los_limites(hoy)
+        + el_cierre(hoy)
+        + como_se_pone_en_marcha()
+        + en_que_punto_esta(hoy)
+    )
+
+
+def a_pdf(historia: list, destino: Path = SALIDA) -> Path:
     documento = BaseDocTemplate(
-        str(SALIDA),
+        str(destino),
         pagesize=A4,
         leftMargin=IZQ,
         rightMargin=DER,
@@ -1127,26 +1291,18 @@ def construir() -> Path:
     marco = Frame(IZQ, ABA, MEDIDA, ALTO - ARR - ABA, id="cuerpo", leftPadding=0, rightPadding=0)
     documento.addPageTemplates([PageTemplate(id="normal", frames=[marco], onPage=pie)])
 
-    historia = []
-    historia += portada(hoy)
-    historia += el_problema(hoy)
-    historia += como_funciona()
-    historia += la_ficha(hoy)
-    historia += la_medicion()
-    historia += lo_que_cuesta_cada_acierto(hoy)
-    historia += el_formulario()
-    historia += lo_que_cuesta(hoy)
-    historia += como_esta_hecho(hoy)
-    historia += los_fallos()
-    historia += los_limites()
-    historia += el_cierre()
-    historia += como_se_pone_en_marcha()
-    historia += en_que_punto_esta(hoy)
     documento.build(historia)
-    return SALIDA
+    return destino
+
+
+def construir() -> tuple[Path, Path]:
+    """Los dos formatos de una sola lectura de la base: si dijeran cifras distintas, sería
+    porque se han generado en momentos distintos, y eso es justo lo que no puede pasar."""
+    hoy = del_radar()
+    return a_pdf(historia_de(hoy)), a_docx(historia_de(hoy))
 
 
 if __name__ == "__main__":
-    ruta = construir()
-    print(f"\nDossier: {ruta.as_posix()}")
-    print(f"Para verlo:  {ruta.resolve().as_uri()}")
+    for ruta in construir():
+        print(f"\n{ruta.suffix.lstrip('.').upper():>4}: {ruta.as_posix()}")
+        print(f"      {ruta.resolve().as_uri()}")
