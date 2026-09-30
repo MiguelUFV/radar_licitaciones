@@ -161,3 +161,8 @@ se tomó, está en `docs/HALLAZGO_UNIVERSO.md` y en `docs/DECISIONES.md` D44.
 
 Se ha vuelto a medir todo lo que dependía del universo, sin volver a llamar al modelo: los
 triajes estaban guardados y lo único que cambia es qué expedientes cuentan.
+
+**30-09-2026 · Ya se sabe cuánto bajó.** Completada la carga de 2024, el universo queda en
+**85.769** expedientes (eran 120.656: sobraban 34.887) y los contratos ganados de las empresas de
+test en **52** (eran 77). La medición rehecha está en `docs/informes/fase5_resultados.md`; el
+veredicto no cambia y el margen empeora (D44).

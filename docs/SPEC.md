@@ -172,11 +172,11 @@ flowchart TD
   "revisar" diciendo que es una imagen y que hay que mirarlo a mano. Es la misma rama de OCR que
   falta en el punto anterior.
 - **Perfil declarativo:** el radar sabe de la empresa lo que dice su perfil. Si el perfil está mal,
-  la decisión también. **Medido en la Fase 5, y es el límite que decide el resultado:** de los 20
-  contratos ganados que el agente descartó, **19 son productos o servicios que el perfil no menciona**.
-  Empresa G es partner de Autodesk según su web y ganó once contratos de licencias de Adobe y de
-  PRESTO; Empresa C dice integrar equipos de televisión y ganó contratos de CDN, DRM y analítica de
-  redes sociales. El triaje razonó bien sobre una descripción demasiado estrecha. El techo del radar
+  la decisión también. **Medido en la Fase 5, y es el límite que decide el resultado:** de los 16
+  contratos ganados que el agente descartó, **los 16 son productos o servicios que el perfil no
+  menciona**. Empresa G es partner de Autodesk según su web y ganó diez contratos de licencias de
+  Adobe (seis) y de PRESTO (cuatro); Empresa C dice integrar equipos de televisión y ganó contratos
+  de CDN, DRM, streaming y analítica de redes sociales. El triaje razonó bien sobre una descripción demasiado estrecha. El techo del radar
   es el perfil, no el modelo (`docs/informes/fase5_diagnostico.md`).
 - **El tope diario de un cliente se puede pasar por el precio de un pliego.** Antes de abrir uno
   se comprueba que lo que queda del tope cubre la reserva (el percentil 90 de lo que han costado

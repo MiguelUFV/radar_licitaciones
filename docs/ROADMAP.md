@@ -190,7 +190,7 @@ que pudieran cambiar. Se anota aquí en lugar de disimularlo, como el alta de em
 La revisión de secretos se hizo la primera a propósito: si hubiera encontrado algo, habría
 obligado a reescribir el historial, y eso se descubre mejor pronto que tarde.
 
-- [ ] README: qué hace, cifras medidas con enlace a su origen, coste real, límites (desde SPEC §9)
+- [x] README con lo que hace, las cifras medidas enlazadas a su origen, el coste real (2,23 EUR) y los límites de SPEC §9. Hecho el 30-09-2026
 - [x] Empresas anonimizadas: comprobado el 30-09-2026 que ninguno de los siete NIF del estudio aparece en git. Los alias van de Empresa A a G, no a E
 - [x] Revisión de secretos: gitleaks sobre 65 commits el 30-09-2026, sin hallazgos
 - [x] Licencia MIT y atribución a la fuente de datos (`LICENSE`), hecho el 30-09-2026

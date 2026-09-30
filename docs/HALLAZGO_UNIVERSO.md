@@ -82,3 +82,32 @@ viejo ni el nuevo son ciertos.
 - `radar.evaluacion.eficiencia --guardar` para M9 y M10, que salen de M2.
 - Regenerar el informe de la Fase 5 y el dossier, que leen las cifras de la base.
 - Convertir esto en una entrada de `docs/DECISIONES.md` con lo que se decidió y por qué.
+
+## 6. Cierre (30-09-2026), y en qué se equivocó este documento
+
+Los doce meses de 2024 están cargados y la medición está rehecha. Las cifras de los apartados 2
+y 3 eran provisionales —el propio documento avisaba de que podían crecer— y crecieron bastante
+más de lo que se esperaba.
+
+| | Publicado | Con 2 meses (apdo. 2) | **Final, 2024 entero** |
+|---|---|---|---|
+| Universo del periodo | 120.656 | 112.924 | **85.769** |
+| Contratos ganados de las 5 de test | 77 | 66 | **52** |
+| Recall del agente | 74,0 % | 74,2 % | **69,2 %** |
+
+**El apartado 3 se equivocó, y conviene que quede escrito.** Decía «la conclusión aguanta» y que
+«el recall del agente se queda donde estaba», porque con dos meses los contratos que salían
+estaban repartidos entre aciertos y fallos casi en la misma proporción. Con el año entero deja de
+ser verdad: el recall del agente cae **4,8 puntos**, mientras que los dos baselines se mueven
+menos de medio punto (81,8 → 82,7 y 88,3 → 88,5).
+
+Dicho de otro modo: **los expedientes que sobraban favorecían al agente.** La diferencia contra
+el Baseline B pasa de −14,3 a −19,2 puntos, y contra el Baseline A de −7,8 a −13,5. El veredicto
+no cambia —refutada frente a B, no concluyente frente a A— pero el margen empeora en los dos.
+
+La lección no es que el apartado 3 estuviera mal escrito: estaba bien escrito, avisaba de que era
+provisional y no lo vendió como resultado. La lección es que **una muestra parcial de un sesgo no
+dice la dirección del sesgo entero**, y que si aquel 74,2 % se hubiera publicado por las prisas,
+habría sido una cifra tranquilizadora y falsa.
+
+Detalle y cifras por empresa en `docs/informes/fase5_diagnostico.md` §7.
