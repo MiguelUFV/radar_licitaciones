@@ -10,7 +10,7 @@ Regenerado el 29-09-2026 desde la tabla `eval_resultados`, sin
 llamar a la API. El procedimiento estaba congelado antes de medir en
 `docs/PLAN_MEDICION.md`; los criterios, en `docs/SPEC.md` §6.
 
-Commits con los que se calcularon estas cifras: 1934adf, 8bfac44, 9961988, a8e6905, c32cd1a, efc752a.
+Commits con los que se calcularon estas cifras: 8353420, 8bfac44, a8e6905, c32cd1a.
 
 ## La tesis
 
@@ -22,18 +22,18 @@ confianza al 95 % excluye el 0. Una diferencia positiva con un intervalo que cru
 
 | Comparación | Agente | Rival | Diferencia | IC 95 % | n | Veredicto |
 |---|---|---|---|---|---|---|
-| frente a baseline a | 74.0 % | 81.8 % | -7.8 % | [-23.4 %, 7.8 %] | 77 | **NO CONCLUYENTE** |
-| frente a baseline b | 74.0 % | 88.3 % | -14.3 % | [-26.0 %, -3.9 %] | 77 | **REFUTADA** |
+| frente a baseline a | 69.2 % | 82.7 % | -13.5 % | [-32.7 %, 5.8 %] | 52 | **NO CONCLUYENTE** |
+| frente a baseline b | 69.2 % | 88.5 % | -19.2 % | [-32.7 %, -7.7 %] | 52 | **REFUTADA** |
 
 ## M1 — recall: de los contratos que la empresa ganó, cuántos estaban en la lista
 
 | Empresa | Contratos | Baseline A | Baseline B | **Agente** |
 |---|---|---|---|---|
-| Empresa C | 16 | 62.5 % | 56.2 % | **50.0 %** |
-| Empresa D | 11 | 81.8 % | 90.9 % | **100.0 %** |
-| Empresa E | 13 | 69.2 % | 100.0 % | **92.3 %** |
-| Empresa F | 9 | 77.8 % | 88.9 % | **100.0 %** |
-| Empresa G | 28 | 100.0 % | 100.0 % | **60.7 %** |
+| Empresa C | 8 | 75.0 % | 37.5 % | **37.5 %** |
+| Empresa D | 7 | 71.4 % | 85.7 % | **100.0 %** |
+| Empresa E | 11 | 63.6 % | 100.0 % | **90.9 %** |
+| Empresa F | 6 | 83.3 % | 100.0 % | **100.0 %** |
+| Empresa G | 20 | 100.0 % | 100.0 % | **50.0 %** |
 
 El recall se mide sobre **todos** los contratos ganados del periodo, no sobre una muestra.
 
@@ -41,11 +41,11 @@ El recall se mide sobre **todos** los contratos ganados del periodo, no sobre un
 
 | Empresa | Baseline A | Baseline B | **Agente** | Muestra |
 |---|---|---|---|---|
-| Empresa C | 30,3 | 68,2 | **7,6** | 88 no ganados |
-| Empresa D | 30,3 | 166,7 | **53,0** | 88 no ganados |
-| Empresa E | 30,3 | 121,2 | **68,2** | 88 no ganados |
-| Empresa F | 30,3 | 272,7 | **7,6** | 88 no ganados |
-| Empresa G | 30,3 | 287,9 | **53,0** | 88 no ganados |
+| Empresa C | 39,5 | 74,0 | **29,6** | 96 no ganados |
+| Empresa D | 41,2 | 133,9 | **56,7** | 92 no ganados |
+| Empresa E | 31,6 | 94,8 | **57,9** | 90 no ganados |
+| Empresa F | 31,2 | 197,9 | **20,8** | 91 no ganados |
+| Empresa G | 59,2 | 227,1 | **69,1** | 96 no ganados |
 
 El volumen del agente es una **estimación** a partir de la muestra de no ganados
 (`docs/PLAN_MEDICION.md` §3).
@@ -59,11 +59,11 @@ El volumen del agente es una **estimación** a partir de la muestra de no ganado
 
 | Empresa | **Agente** | Baseline A | Baseline B |
 |---|---|---|---|
-| Empresa C | **171** | 548 | 1371 |
-| Empresa D | **873** | 609 | 3016 |
-| Empresa E | **1028** | 609 | 1687 |
-| Empresa F | **152** | 783 | 6170 |
-| Empresa G | **565** | 196 | 1861 |
+| Empresa C | **1787** | 1191 | 4467 |
+| Empresa D | **1465** | 1492 | 4040 |
+| Empresa E | **1048** | 817 | 1559 |
+| Empresa F | **628** | 1131 | 5969 |
+| Empresa G | **1251** | 536 | 2055 |
 
 Menos es mejor. No supone nada: es el volumen medido por el periodo, dividido entre los
 contratos que cada método encuentra.
@@ -72,11 +72,11 @@ contratos que cada método encuentra.
 
 | Empresa | **Agente** | Baseline A | Baseline B |
 |---|---|---|---|
-| Empresa C | **50.0 %** | 15.6 % | 6.2 % |
-| Empresa D | **100.0 %** | 81.8 % | 28.9 % |
-| Empresa E | **92.3 %** | 69.2 % | 56.2 % |
-| Empresa F | **100.0 %** | 19.4 % | 2.5 % |
-| Empresa G | **60.7 %** | 100.0 % | 18.4 % |
+| Empresa C | **37.5 %** | 56.2 % | 15.0 % |
+| Empresa D | **100.0 %** | 71.4 % | 36.3 % |
+| Empresa E | **90.9 %** | 63.6 % | 61.1 % |
+| Empresa F | **100.0 %** | 55.6 % | 10.5 % |
+| Empresa G | **50.0 %** | 100.0 % | 30.4 % |
 
 **Con una suposición fuerte:** un filtro de CPV no ordena su lista, así que se supone que
 quien solo puede mirar una parte la mira **al azar** y que los aciertos están repartidos de
@@ -114,18 +114,18 @@ hizo (`docs/PLAN_MEDICION.md` §7).
 | Empresa | Contrato que ganó y el agente descartó | Motivo que dio el agente |
 |---|---|---|
 | Empresa C | Herramienta de análisis de competidores en redes sociales | Herramienta de análisis de competidores en redes sociales: software de análisis, fuera del ámbito audiovisual de broadcast |
-| Empresa C | Herramienta de análisis de redes sociales | Herramienta de análisis de redes sociales: software de análisis, fuera del ámbito de equipamiento y sistemas audiovisuales de broa |
 | Empresa C | IA aplicada al metadatado de contenidos del Archivo RTVE | IA aplicada a metadatado de contenidos: desarrollo de software especializado, no suministro de equipamiento ni integración de sist |
 | Empresa C | Servicios CDN | Servicios CDN: infraestructura de telecomunicaciones, no integración ni distribución de equipamiento audiovisual |
+| Empresa C | Servicios de protección de origen | Servicios de protección de origen (DRM): software de seguridad de contenidos, no integración ni suministro de sistemas audiovisual |
 | Empresa E | Mantenimiento y soporte de los productos del software AuditPlus Professional | Mantenimiento de software AuditPlus: es soporte de una aplicación específica de terceros, no de soluciones propias de la empresa. |
 | Empresa G | Licenciamiento de productos Adobe | Licenciamiento de productos Adobe. La empresa es partner de Autodesk, no de Adobe; no hay indicios de que distribuya o implante so |
 | Empresa G | L’objecte d’aquesta licitació es el subministrament de la renovació del suport i serveis d | Soporte y actualización de licencias PRESTO; no es de sus áreas de especialización (CAD, BIM, GIS, manufacturing). |
 | Empresa G | Renovación y actualización de versiones de software técnico de PRESTO | Renovación de software técnico PRESTO. Mismo motivo: PRESTO es de presupuestación y gestión de proyectos, fuera del perímetro de s |
 | Empresa G | Servicio de soporte y actualizaciones de software PRESTO. | Soporte y actualizaciones de software PRESTO; no es un producto que la empresa distribuya o soporte. |
 
-Se muestran 4 por empresa. Hay Empresa C: 4 más, Empresa G: 7 más.
+Se muestran 4 por empresa. Hay Empresa C: 1 más, Empresa G: 6 más.
 
-Contratos perdidos por empresa: Empresa C 8, Empresa E 1, Empresa G 11.
+Contratos perdidos por empresa: Empresa C 5, Empresa E 1, Empresa G 10.
 
 ## Lo que falta por medir
 

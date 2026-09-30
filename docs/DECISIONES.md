@@ -467,3 +467,10 @@ Ejemplo **hipotético** (300 licitaciones al día en el universo y 10 pliegos le
   día para otra cosa (`radar.diagnostico` compara el universo de ahora con la `n` guardada en
   `eval_resultados`). Sin él, la carga habría cambiado las cifras en silencio y el informe habría
   seguido diciendo 120.656. Merece la pena escribir candados aunque parezcan de más.
+- **Cerrada el 30-09-2026.** 2024 completo y todo lo que dependía del universo vuelto a medir, por
+  0 €. El universo baja a 85.769 expedientes: sobraban 34.887, y no los 7.732 que se estimaron con
+  tres meses cargados. El veredicto no cambia (refutada frente al Baseline B, no concluyente frente
+  al A) pero el margen empeora de −14,3 a −19,2 puntos, porque el error inflaba el recall del
+  agente y apenas tocaba el de los baselines. **El dato malo favorecía a lo que el proyecto
+  defendía**, que es justo el caso en el que nadie vuelve a mirar si no hay un candado. Detalle en
+  `docs/informes/fase5_diagnostico.md` §7.

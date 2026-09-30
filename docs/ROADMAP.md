@@ -6,9 +6,13 @@ Ninguna fase empieza sin que la anterior cumpla su criterio de salida.
 **Fase activa: 7** (0 a 6 cerradas; informes en `docs/informes/`)
 
 **Resultado de la Fase 5: la tesis principal queda REFUTADA** frente al baseline derivado
-del perfil (−14,3 puntos, IC [−26,0, −3,9]) y no concluyente frente al filtro CPV 72/48
-(−7,8 puntos, IC [−23,4, +7,8]). La causa está medida: 19 de los 20 contratos perdidos son
+del perfil (−19,2 puntos, IC [−32,7, −7,7]) y no concluyente frente al filtro CPV 72/48
+(−13,5 puntos, IC [−32,7, +5,8]). La causa está medida: los 16 contratos perdidos son
 productos que el perfil de la empresa no menciona. Ver `docs/informes/fase5_diagnostico.md`.
+
+Cifras medidas el 30-09-2026 sobre el universo corregido de D44 (85.769 expedientes). Las
+anteriores (−14,3 y −7,8, sobre 120.656) se midieron con el histórico de 2024 sin cargar y no
+eran ciertas; el veredicto no cambia, el margen empeora.
 
 | Fase | Objetivo | Sesiones | Puerta de salida |
 |---|---|---|---|
@@ -190,18 +194,26 @@ muestra una traza al usuario.
 
 ---
 
-## Abierto: el periodo del estudio estaba mal delimitado (29-09-2026)
+## Cerrado: el periodo del estudio estaba mal delimitado (abierto 29-09-2026, cerrado 30-09-2026)
 
-Cargar 2024 ha destapado que 7.732 expedientes entraban en el universo del estudio sin deberlo:
-su primera publicación era de 2024 y no se veía porque el histórico empezaba en 2025-01. Los
-contratos ganados de las empresas de test pasan de 77 a 66. El recall del agente recalculado se
-queda igual (74,2 % frente al 74,0 % publicado), pero faltan los baselines.
+Cargar 2024 destapó que había expedientes entrando en el universo del estudio sin deberlo: su
+primera publicación era de 2024 y no se veía porque el histórico empezaba en 2025-01. Decidido en
+`docs/DECISIONES.md` D44: se completa 2024 y se vuelve a medir.
 
-Decidido en `docs/DECISIONES.md` D44: se completa 2024 y se vuelve a medir. **Hasta que se
-complete, el proyecto está en un estado que no vale: con 2024 a medio cargar, ni el universo
-viejo ni el nuevo son ciertos.**
+**Hecho el 30-09-2026.** Los doce meses de 2024 están cargados (502.541 entradas en los nueve que
+faltaban, 0 saltados) y todo lo que dependía del universo se ha vuelto a medir. Coste: 0 €, ni una
+llamada al modelo.
 
-### Cómo se retoma (29-09-2026, con tres meses de doce cargados)
+- Universo: 120.656 → **85.769** expedientes. Sobraban 34.887, no los 7.732 que se preveían con
+  tres meses cargados: cuanto más histórico hay, más contratos se descubren que ya existían.
+- Contratos de la muestra: 77 → **52**. Recall del agente: 74,0 % → **69,2 %**.
+- **El veredicto no cambia** —refutada frente al Baseline B, no concluyente frente al A— pero el
+  margen empeora: −14,3 → −19,2 y −7,8 → −13,5. El error favorecía al agente.
+- `radar.diagnostico` ya no avisa de que el universo no coincide.
+- Regenerados: `fase5_resultados.md`, `fase5_diagnostico.md` (apartado 7, con las dos afirmaciones
+  que quedaron desmentidas) y `dossier_radar_de_licitaciones.pdf`.
+
+### Cómo se retomó (se deja escrito por si hay que repetirlo)
 
 La carga es reanudable: los meses terminados están en `historico_meses` y no se vuelven a pedir,
 y lo ya descargado tampoco. Cerrar el ordenador no pierde nada. Estos cuatro pasos, en orden:
@@ -219,12 +231,20 @@ uv run --with reportlab python docs/dossier.py            # regenera el PDF
 **Ninguno de esos comandos llama al modelo**, así que no cuesta nada: los triajes están
 guardados y lo único que cambia es qué expedientes cuentan.
 
-Se puede acelerar la carga lanzando un segundo proceso por el otro extremo del año (por ejemplo
-`--desde 2024-08 --hasta 2024-10`): es idempotente y los dos se reparten los meses sin pisarse.
+Se puede acelerar la carga lanzando un segundo proceso por el otro extremo del año: es idempotente
+y los dos se reparten los meses sin pisarse. **Se hizo así y funcionó:** un proceso con
+`--desde 2024-04 --hasta 2024-12` y otro con `--desde 2024-09 --hasta 2024-12`. El segundo cerró
+sus cuatro meses, el primero se los saltó sin volver a descargarlos y se quedó con los cinco
+restantes. Los nueve meses tardaron algo menos de hora y media; en serie habrían sido cerca de
+dos horas y media. El primer mes va más lento que los demás porque descarga en frío.
 
-Al terminar, `uv run python -m radar.diagnostico` debe dejar de avisar de que el universo no
-coincide, y queda por actualizar a mano `docs/informes/fase5_diagnostico.md`, que lo escribe una
-persona y no un comando.
+Al terminar, `uv run python -m radar.diagnostico` deja de avisar de que el universo no coincide.
+Sigue avisando de que `docs/REGLA_SELECCION.md` ha cambiado, y eso es lo esperado: el fichero
+tiene sus dos cambios anotados en su apartado **Cambios**.
+
+`docs/informes/fase5_diagnostico.md` no lo genera ningún comando, lo escribe una persona: se
+reescribió a mano el 30-09-2026 con las cifras nuevas, y el apartado 7 deja escrito qué cambió y
+qué dos afirmaciones de la versión anterior quedaron desmentidas.
 
 ## Cambios fuera de fase (backlog)
 
