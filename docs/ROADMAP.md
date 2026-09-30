@@ -184,11 +184,17 @@ muestra una traza al usuario.
 
 ## Fase 8 — Publicación
 
+**Cuatro puntos adelantados el 30-09-2026, con la Fase 7 aún abierta.** Se hicieron mientras
+corría la carga de 2024, que dejaba hora y media de espera, y ninguno de ellos depende de cifras
+que pudieran cambiar. Se anota aquí en lugar de disimularlo, como el alta de empresas del 28-09.
+La revisión de secretos se hizo la primera a propósito: si hubiera encontrado algo, habría
+obligado a reescribir el historial, y eso se descubre mejor pronto que tarde.
+
 - [ ] README: qué hace, cifras medidas con enlace a su origen, coste real, límites (desde SPEC §9)
-- [ ] Empresas anonimizadas (Empresa A–E) en todo lo público
-- [ ] Revisión de secretos en el historial (gitleaks) antes de hacer público el repo
-- [ ] Licencia MIT; atribución a la fuente de datos
-- [ ] Guion y grabación del vídeo de 60 s
+- [x] Empresas anonimizadas: comprobado el 30-09-2026 que ninguno de los siete NIF del estudio aparece en git. Los alias van de Empresa A a G, no a E
+- [x] Revisión de secretos: gitleaks sobre 65 commits el 30-09-2026, sin hallazgos
+- [x] Licencia MIT y atribución a la fuente de datos (`LICENSE`), hecho el 30-09-2026
+- [x] Guion del vídeo de 60 s: `docs/guion_video.md` (30-09-2026). Queda grabarlo
 - [ ] Post de LinkedIn con la tesis, el resultado (sea cual sea) y el enlace
 - [ ] (Opcional) Despliegue en un VPS para que funcione sin tu PC
 
