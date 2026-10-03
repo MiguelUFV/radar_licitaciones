@@ -1107,9 +1107,123 @@ def el_cierre(hoy: dict) -> list:
     ]
 
 
+def el_potencial(hoy: dict) -> list:
+    return [
+        p("11. Qué podría ser", "seccion"),
+        p(
+            "El radar que se ha medido es una versión 1 construida para contestar una pregunta, "
+            "no para venderse. Separar lo que ya está construido y medido de lo que haría falta "
+            "es parte del resultado: un proyecto que no distingue las dos cosas no se puede creer.",
+            "primero",
+        ),
+        p("Lo que se puede llevar a otro sitio tal cual", "sub"),
+        p(
+            "Lo más reutilizable de este proyecto no tiene nada que ver con la contratación "
+            "pública. Son cuatro piezas que resuelven problemas que aparecen en cualquier sistema "
+            "con un modelo de lenguaje dentro:"
+        ),
+        Spacer(1, 2),
+        tabla(
+            [
+                ["", ""],
+                [
+                    "<b>La cita verificada</b>",
+                    "El modelo copia una frase y dice en qué página está; el programa comprueba "
+                    "que esa frase aparece ahí antes de usarla. Sirve igual para una póliza, unas "
+                    "cuentas anuales o un historial clínico. Medido: 62 de 62.",
+                ],
+                [
+                    "<b>El tope de gasto antes de llamar</b>",
+                    "Se cuentan los tokens de entrada, que es gratis, y se supone la salida al "
+                    "máximo. Si no cabe en el presupuesto, no se llama. Casi ningún sistema con "
+                    "un modelo detrás comprueba el coste <b>antes</b>, y por eso se desbocan.",
+                ],
+                [
+                    "<b>La trazabilidad del dato</b>",
+                    "Cualquier fila remonta hasta el fichero del que salió, identificado por su "
+                    "huella. Es, literalmente, lo que exige el artículo 10 del reglamento europeo "
+                    "de inteligencia artificial sobre gobernanza de datos.",
+                ],
+                [
+                    "<b>El método</b>",
+                    "Congelar el criterio antes de mirar los datos y publicar lo que salga. No es "
+                    "código: es la diferencia entre medir y convencerse.",
+                ],
+            ],
+            [52 * mm, MEDIDA - 52 * mm],
+            cabecera=False,
+        ),
+        p("Lo que haría falta para que el radar funcionara", "sub"),
+        p(
+            "La medición no solo dijo que la tesis fallaba: dijo dónde. Esta es la lista, con lo "
+            "que está hecho y lo que no, sin mezclarlo:"
+        ),
+        Spacer(1, 2),
+        tabla(
+            [
+                ["Qué", "Estado", "Qué cambiaría"],
+                [
+                    "Perfiles que escriba la empresa",
+                    "<b>Construido</b>, sin medir",
+                    "Es la causa medida de la pérdida. El formulario ya pregunta lo que ninguna "
+                    "web dice: marcas que distribuye y servicios adyacentes.",
+                ],
+                [
+                    "Un triaje que dude más",
+                    "Sin construir",
+                    "«No» solo si el objeto es de otro sector; «duda» si es del sector y otra "
+                    f"marca. Cambiaría justo los {perdidos(hoy)} casos perdidos.",
+                ],
+                [
+                    "Leer el pliego técnico y los anexos",
+                    "Sin construir",
+                    "Hoy solo se descarga el pliego administrativo. Un requisito que esté solo en "
+                    "el anexo no se ve.",
+                ],
+                [
+                    "Pliegos escaneados",
+                    "Sin construir",
+                    "Hoy salen como «revisar» diciendo que son una imagen. La rama que los manda "
+                    "al modelo como imagen está decidida y no construida.",
+                ],
+                [
+                    "Plataformas autonómicas",
+                    "Sin construir",
+                    "Varias comunidades publican fuera de la Plataforma estatal, y esas "
+                    "licitaciones hoy no se ven.",
+                ],
+            ],
+            [44 * mm, 30 * mm, MEDIDA - 74 * mm],
+        ),
+        p(
+            "Ninguno de los dos primeros se puede aplicar y volver a publicar sobre las mismas "
+            "cinco empresas: ajustar el sistema después de ver su resultado convierte el test en "
+            "desarrollo. Haría falta un segundo estudio con empresas nuevas, y está escrito así "
+            "desde antes de medir.",
+        ),
+        regla(6),
+        p("Y un activo que no estaba en el plan", "sub"),
+        p(
+            f"Para poder medir hubo que cargar la contratación pública española entera de un "
+            f"periodo: <b>{miles(hoy.get('licitaciones', 0))}</b> licitaciones y "
+            f"<b>{miles(hoy.get('adjudicaciones', 0))}</b> adjudicaciones con su ganador, cada una "
+            "trazable hasta el fichero original. Eso contesta preguntas que no necesitan ningún "
+            "modelo: cuántos contratos se adjudican con un solo licitador, si hay órganos donde "
+            "gana siempre la misma empresa, cómo se concentra un mercado por código de actividad. "
+            "El dato quedó, y es independiente de que la tesis saliera o no.",
+        ),
+        p(
+            "Lo que separa esto de un producto no es código: es alojamiento, autenticación, una "
+            "política de datos y alguien que conteste cuando falle. Está escrito como límite en "
+            "la especificación desde el primer día, y sigue siéndolo.",
+            "nota",
+        ),
+    ]
+
+
 def como_se_pone_en_marcha() -> list:
     return [
-        p("11. Cómo se pone en marcha", "seccion"),
+        p("12. Cómo se pone en marcha", "seccion"),
         p(
             "Todo arranca con tres contenedores —la base de datos, el orquestador y el propio "
             "radar— y se maneja con comandos que se pueden leer. Ninguno de ellos gasta dinero "
@@ -1140,7 +1254,7 @@ def como_se_pone_en_marcha() -> list:
 
 def en_que_punto_esta(hoy: dict) -> list:
     return [
-        p("12. En qué punto está", "seccion"),
+        p("13. En qué punto está", "seccion"),
         p(
             "Las siete fases de construcción están cerradas, cada una con su informe y con el "
             "comando que reproduce sus cifras. El trabajo diario por cliente funciona de punta a "
@@ -1271,6 +1385,7 @@ def historia_de(hoy: dict) -> list:
         + los_fallos()
         + los_limites(hoy)
         + el_cierre(hoy)
+        + el_potencial(hoy)
         + como_se_pone_en_marcha()
         + en_que_punto_esta(hoy)
     )
