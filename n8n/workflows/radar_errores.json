@@ -41,8 +41,8 @@
     },
     {
       "parameters": {
-        "fromEmail": "miguelmartincaro@gmail.com",
-        "toEmail": "miguelmartincaro@gmail.com",
+        "fromEmail": "correo@oculto.invalid",
+        "toEmail": "correo@oculto.invalid",
         "subject": "=Radar de licitaciones: algo ha fallado esta noche",
         "emailFormat": "both",
         "html": "={{ $json.mensaje }}",

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 
 import httpx
@@ -444,10 +445,30 @@ def publicar(definicion: dict, activar: bool = True) -> dict:
         return creado
 
 
+# Lo que se exporta se versiona, así que no puede llevar la dirección de correo de nadie. Es la
+# misma regla que ya se aplicaba a la contraseña de Postgres, que nunca sale de .env: aquí se
+# había quedado fuera, y la dirección apareció en los tres workflows al revisar el repositorio
+# antes de hacerlo público (03-10-2026).
+CORREO_OCULTO = "correo@oculto.invalid"
+CORREOS = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+
+
+def sin_correos(valor):
+    """La misma definición con cualquier dirección sustituida, sin tocar el original."""
+    if isinstance(valor, str):
+        return CORREOS.sub(CORREO_OCULTO, valor)
+    if isinstance(valor, dict):
+        return {c: sin_correos(v) for c, v in valor.items()}
+    if isinstance(valor, list):
+        return [sin_correos(v) for v in valor]
+    return valor
+
+
 def exportar(definicion: dict) -> Path:
     CARPETA.mkdir(parents=True, exist_ok=True)
     destino = CARPETA / f"{definicion['name']}.json"
-    destino.write_text(json.dumps(definicion, indent=2, ensure_ascii=False), encoding="utf-8")
+    publico = sin_correos(definicion)
+    destino.write_text(json.dumps(publico, indent=2, ensure_ascii=False), encoding="utf-8")
     return destino
 
 

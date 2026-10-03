@@ -158,7 +158,7 @@
     },
     {
       "parameters": {
-        "fromEmail": "miguelmartincaro@gmail.com",
+        "fromEmail": "correo@oculto.invalid",
         "toEmail": "={{ $json.destinatario }}",
         "subject": "={{ $json.asunto }}",
         "emailFormat": "both",
